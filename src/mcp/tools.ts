@@ -27,6 +27,7 @@ import {
 } from '@/server/services/posts'
 import { listRevisions, restoreRevision } from '@/server/services/revisions'
 import { createTag, listTags, mergeTags, renameTag } from '@/server/services/tags'
+import type { Actor } from '@/server/services/posts'
 import type { McpContext } from './context'
 
 export type ToolResult = {
@@ -77,6 +78,16 @@ async function toToolError(error: unknown): Promise<ToolResult> {
     details.availableCategories = await listLeafCategories()
   }
   return fail(error.message, Object.keys(details).length > 0 ? details : undefined)
+}
+
+/**
+ * 分类治理是管理员的活——作者和 MCP 的作者角色都做不到。
+ * 后台的 action 有这层校验，MCP 侧必须一样，否则通道不同、权限不同。
+ */
+function assertCategoryAdmin(actor: Actor): void {
+  if (actor.role !== 'admin') {
+    throw new DomainError('forbidden', '只有管理员能管理分类')
+  }
 }
 
 /** 包一层，把 handler 抛出的 DomainError 变成 isError 结果。 */
@@ -548,6 +559,7 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
     },
     async ({ slug, name, parentId, description }) =>
       run(async () => {
+        assertCategoryAdmin(actor)
         const category = await createCategory({
           parentId: parentId ?? null,
           slug,
@@ -576,6 +588,7 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
     },
     async ({ categoryId, name, slug }) =>
       run(async () => {
+        assertCategoryAdmin(actor)
         const category = await renameCategory({
           id: categoryId,
           ...(name !== undefined ? { name } : {}),
@@ -602,6 +615,7 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
     },
     async ({ categoryId, parentId }) =>
       run(async () => {
+        assertCategoryAdmin(actor)
         const category = await moveCategory({ id: categoryId, newParentId: parentId })
         await recordAudit({
           actor,
@@ -621,6 +635,7 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
     },
     async ({ categoryId }) =>
       run(async () => {
+        assertCategoryAdmin(actor)
         await deleteCategory(categoryId)
         await recordAudit({
           actor,

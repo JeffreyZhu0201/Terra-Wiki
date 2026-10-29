@@ -350,7 +350,7 @@ describe('mcp tools', () => {
   })
 
   it('rejects an invalid or reserved category slug', async () => {
-    const { ctx } = await tokenContext({ canPublish: false })
+    const { ctx } = await tokenContext({ canPublish: false, role: 'admin' })
     const client = await connect(ctx)
 
     const reserved = await client.callTool({
@@ -364,5 +364,25 @@ describe('mcp tools', () => {
       arguments: { slug: 'Not A Slug', name: '非法 slug' },
     })
     expect(invalid.isError).toBe(true)
+  })
+  it('lets only an admin token manage categories', async () => {
+    const author = await tokenContext({ canPublish: false, role: 'author' })
+    const authorClient = await connect(author.ctx)
+
+    const created = await authorClient.callTool({
+      name: 'create_category',
+      arguments: { slug: 'by-author', name: '作者建的' },
+    })
+    expect(created.isError).toBe(true)
+    const text = (created.content as { type: 'text'; text: string }[])[0]!.text
+    expect(text).toContain('管理员')
+
+    const admin = await tokenContext({ canPublish: false, role: 'admin' })
+    const adminClient = await connect(admin.ctx)
+    const ok = await adminClient.callTool({
+      name: 'create_category',
+      arguments: { slug: 'by-admin', name: '管理员建的' },
+    })
+    expect(ok.isError).toBeFalsy()
   })
 })
