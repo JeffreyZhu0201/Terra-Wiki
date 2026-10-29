@@ -1,0 +1,53 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: terra
+      POSTGRES_PASSWORD: terra
+      POSTGRES_DB: terra
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U terra -d terra"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # 一次性任务：跑完迁移就退出。app 依赖它成功退出。
+  migrate:
+    build:
+      context: .
+      target: migrate
+    restart: "no"
+    environment:
+      DATABASE_URL: postgres://terra:terra@db:5432/terra
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+      target: runner
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://terra:terra@db:5432/terra
+      SITE_URL: ${SITE_URL:-http://localhost:3000}
+      UPLOAD_DIR: /app/uploads
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?请在 .env 里设置 BOOTSTRAP_ADMIN_EMAIL}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?请在 .env 里设置 BOOTSTRAP_ADMIN_PASSWORD}
+      VID_SALT: ${VID_SALT:-}
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
+  uploads:
