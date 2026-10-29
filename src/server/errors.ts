@@ -6,7 +6,7 @@ export class DomainError extends Error {
   constructor(
     public readonly code: 'not_found' | 'conflict' | 'forbidden' | 'invalid' | 'unauthorized',
     message: string,
-    public readonly details?: Record<string, unknown>,
+    public readonly details?: Record<string, unknown> | undefined,
   ) {
     super(message)
     this.name = 'DomainError'
