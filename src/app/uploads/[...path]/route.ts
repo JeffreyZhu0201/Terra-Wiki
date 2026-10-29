@@ -28,7 +28,9 @@ export async function GET(
   if (!mime) return new Response('Not found', { status: 404 })
 
   try {
-    const file = await readFile(join(UPLOAD_ROOT(), key))
+    // 上传目录由环境变量决定，静态分析无法定位——显式忽略追踪，
+    // 否则整个项目都会被打进产物。
+    const file = await readFile(join(/*turbopackIgnore: true*/ UPLOAD_ROOT(), key))
     return new Response(new Uint8Array(file), {
       headers: {
         'content-type': mime,

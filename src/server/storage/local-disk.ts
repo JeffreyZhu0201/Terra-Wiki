@@ -18,13 +18,13 @@ function generateKey(ext: string): string {
 export const LocalDiskStorage: Storage = {
   async put(bytes: Buffer, _mime: string, ext: string) {
     const key = generateKey(ext)
-    const target = join(UPLOAD_ROOT(), key)
+    const target = join(/*turbopackIgnore: true*/ UPLOAD_ROOT(), key)
     await mkdir(dirname(target), { recursive: true })
     await writeFile(target, bytes)
     return { storedPath: key, url: `/uploads/${key}` }
   },
 
   async delete(storedPath: string) {
-    await rm(join(UPLOAD_ROOT(), storedPath), { force: true })
+    await rm(join(/*turbopackIgnore: true*/ UPLOAD_ROOT(), storedPath), { force: true })
   },
 }
