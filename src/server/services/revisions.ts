@@ -3,6 +3,7 @@ import { db } from '../db/client'
 import { postRevisions } from '../db/schema'
 import { recordAudit } from '../audit'
 import { DomainError } from '../errors'
+import { isUuid } from '../uuid'
 import { updatePost, type Actor, type Post } from './posts'
 
 export type Revision = {
@@ -46,6 +47,9 @@ export async function restoreRevision(input: {
   postId: string
   revisionId: string
 }): Promise<Post> {
+  if (!isUuid(input.revisionId)) {
+    throw new DomainError('not_found', '这个版本不存在', { revisionId: input.revisionId })
+  }
   const revision = (
     await db.select().from(postRevisions).where(eq(postRevisions.id, input.revisionId))
   )[0]

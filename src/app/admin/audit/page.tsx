@@ -3,6 +3,8 @@ import { Flash } from '@/components/admin/Flash'
 import { getDictionary, getLocale } from '@/i18n'
 import { listAuditLogs } from '@/server/audit'
 import { requireUser } from '@/server/auth/session'
+import { listMcpTokens } from '@/server/services/tokens'
+import { listUsers } from '@/server/services/users'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,7 +24,20 @@ export default async function AdminAuditPage({
   const query = await searchParams
   const action = one(query.action)
 
-  const entries = await listAuditLogs({ ...(action ? { action } : {}), limit: 200 })
+  const [entries, tokens, members] = await Promise.all([
+    listAuditLogs({ ...(action ? { action } : {}), limit: 200 }),
+    listMcpTokens(),
+    listUsers(),
+  ])
+
+  // actor 存的是 id，但人要看的是名字——Token 尤其需要看到名字。
+  const tokenNames = new Map(tokens.map((token) => [token.id, token.name]))
+  const memberNames = new Map(members.map((member) => [member.id, member.name]))
+  const actorLabel = (actorType: 'user' | 'token', actorId: string): string => {
+    if (actorType === 'token') return tokenNames.get(actorId) ?? actorId.slice(0, 8)
+    return memberNames.get(actorId) ?? actorId.slice(0, 8)
+  }
+
   // 过滤器选项来自已有日志——action 是自由文本，没法穷举。
   const actions = [...new Set(entries.map((entry) => entry.action))].sort()
 
@@ -74,7 +89,7 @@ export default async function AdminAuditPage({
                   {entry.createdAt.toISOString().slice(0, 19).replace('T', ' ')}
                 </td>
                 <td className="py-2 pr-4 font-mono text-xs">
-                  {entry.actorType}:{entry.actorId.slice(0, 8)}
+                  {actorLabel(entry.actorType, entry.actorId)}
                 </td>
                 <td className="py-2 pr-4 font-mono text-xs">{entry.action}</td>
                 <td className="py-2 font-mono text-xs text-ink-muted">

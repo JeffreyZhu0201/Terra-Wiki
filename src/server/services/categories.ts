@@ -2,6 +2,7 @@ import { and, asc, count, eq, inArray, isNull, like, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { categories, posts, redirects } from '../db/schema'
 import { DomainError } from '../errors'
+import { isUuid } from '../uuid'
 
 /** 不能作为顶级分类的 slug——这些路径被系统路由占用。 */
 const RESERVED_SLUGS = new Set([
@@ -148,6 +149,8 @@ export async function getCategoryByPath(path: string): Promise<Category | null> 
 }
 
 export async function getCategoryById(id: string): Promise<Category | null> {
+  // id 不是 UUID 时直接当作"不存在"——否则数据库会抛原始错误。
+  if (!isUuid(id)) return null
   const row = (await db.select().from(categories).where(eq(categories.id, id)))[0]
   return row ? toCategory(row) : null
 }

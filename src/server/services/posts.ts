@@ -12,6 +12,7 @@ import {
 import { db } from '../db/client'
 import { categories, postRevisions, postTags, posts, tags } from '../db/schema'
 import { DomainError } from '../errors'
+import { isUuid } from '../uuid'
 import { ensureUniqueSlug, isValidSlug, slugify } from '../slug'
 import { getCategoryById } from './categories'
 import { createTag } from './tags'
@@ -69,6 +70,28 @@ export function actorCanPublish(actor: Actor): boolean {
   return actor.kind === 'user' ? true : actor.canPublish
 }
 
+/**
+ * 作者只能改自己的文章，管理员可以改任何人的。
+ * MCP 与后台走同一套规则——通道不同，权限语义必须一致。
+ */
+export function assertCanModify(actor: Actor, post: Post): void {
+  if (actor.role === 'admin') return
+  if (post.authorId !== actorUserId(actor)) {
+    // 报"不存在"而不是"没权限"——不该让人知道这篇草稿存在。
+    throw new DomainError('not_found', '文章不存在', { id: post.id })
+  }
+}
+
+/** 某篇文章的标签。 */
+export async function listPostTags(postId: string): Promise<{ slug: string; name: string }[]> {
+  const rows = await db
+    .select({ slug: tags.slug, name: tags.name })
+    .from(postTags)
+    .innerJoin(tags, eq(postTags.tagId, tags.id))
+    .where(eq(postTags.postId, postId))
+
+  return rows
+}
 function toPost(row: PostRow): Post {
   return {
     id: row.id,
@@ -232,6 +255,7 @@ export async function updatePost(input: {
 }): Promise<Post> {
   const current = await getPostById(input.id)
   if (!current) throw new DomainError('not_found', '文章不存在', { id: input.id })
+  assertCanModify(input.actor, current)
 
   if (
     input.expectedUpdatedAt !== undefined &&
@@ -296,6 +320,7 @@ export async function publishPost(input: { actor: Actor; id: string }): Promise<
   }
   const current = await getPostById(input.id)
   if (!current) throw new DomainError('not_found', '文章不存在', { id: input.id })
+  assertCanModify(input.actor, current)
 
   const row = (
     await db
@@ -318,6 +343,7 @@ export async function unpublishPost(input: { actor: Actor; id: string }): Promis
   }
   const current = await getPostById(input.id)
   if (!current) throw new DomainError('not_found', '文章不存在', { id: input.id })
+  assertCanModify(input.actor, current)
 
   const row = (
     await db
@@ -333,6 +359,7 @@ export async function unpublishPost(input: { actor: Actor; id: string }): Promis
 export async function archivePost(input: { actor: Actor; id: string }): Promise<Post> {
   const current = await getPostById(input.id)
   if (!current) throw new DomainError('not_found', '文章不存在', { id: input.id })
+  assertCanModify(input.actor, current)
 
   const row = (
     await db
@@ -346,6 +373,8 @@ export async function archivePost(input: { actor: Actor; id: string }): Promise<
 }
 
 export async function getPostById(id: string): Promise<Post | null> {
+  // id 不是 UUID 时直接当作"不存在"——否则数据库会抛原始错误。
+  if (!isUuid(id)) return null
   const row = (await db.select().from(posts).where(eq(posts.id, id)))[0]
   return row ? toPost(row) : null
 }

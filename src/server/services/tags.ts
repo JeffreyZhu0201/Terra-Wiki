@@ -3,6 +3,7 @@ import { asc, eq, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { postTags, redirects, tags } from '../db/schema'
 import { DomainError } from '../errors'
+import { isUuid } from '../uuid'
 
 export type Tag = {
   id: string
@@ -61,6 +62,7 @@ export async function createTag(name: string): Promise<Tag> {
 }
 
 export async function renameTag(id: string, name: string): Promise<Tag> {
+  if (!isUuid(id)) throw new DomainError('not_found', '标签不存在', { id })
   const current = (await db.select().from(tags).where(eq(tags.id, id)))[0]
   if (!current) throw new DomainError('not_found', '标签不存在', { id })
 
@@ -92,6 +94,9 @@ export async function renameTag(id: string, name: string): Promise<Tag> {
 export async function mergeTags(sourceId: string, targetId: string): Promise<void> {
   if (sourceId === targetId) throw new DomainError('invalid', '不能把标签合并到它自己')
 
+  if (!isUuid(sourceId) || !isUuid(targetId)) {
+    throw new DomainError('not_found', '标签不存在', { sourceId, targetId })
+  }
   const source = (await db.select().from(tags).where(eq(tags.id, sourceId)))[0]
   if (!source) throw new DomainError('not_found', '源标签不存在', { id: sourceId })
   const target = (await db.select().from(tags).where(eq(tags.id, targetId)))[0]

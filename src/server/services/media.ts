@@ -2,6 +2,7 @@ import { desc, eq } from 'drizzle-orm'
 import { db } from '../db/client'
 import { uploads } from '../db/schema'
 import { DomainError } from '../errors'
+import { isUuid } from '../uuid'
 import { storage } from '../storage'
 import { actorUserId, type Actor } from './posts'
 
@@ -84,6 +85,7 @@ export async function uploadMedia(input: {
 }
 
 export async function deleteMedia(actor: Actor, id: string): Promise<void> {
+  if (!isUuid(id)) throw new DomainError('not_found', '文件不存在', { id })
   const row = (await db.select().from(uploads).where(eq(uploads.id, id)))[0]
   if (!row) throw new DomainError('not_found', '文件不存在', { id })
 
