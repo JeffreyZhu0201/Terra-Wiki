@@ -9,7 +9,7 @@ import { getDictionary, getLocale } from '@/i18n'
 import { renderMarkdown } from '@/server/markdown/render'
 import { resolvePath } from '@/server/routes/resolve'
 import { getCategoryById } from '@/server/services/categories'
-import { getPostById, listPosts, PUBLIC_ACTOR } from '@/server/services/posts'
+import { getPostById, listPostTags, listPosts, PUBLIC_ACTOR } from '@/server/services/posts'
 import { getViewCount } from '@/server/services/views'
 
 export const dynamic = 'force-dynamic'
@@ -130,18 +130,4 @@ export default async function CatchAllPage({ params, searchParams }: Props) {
       </footer>
     </article>
   )
-}
-
-async function listPostTags(postId: string): Promise<{ slug: string; name: string }[]> {
-  const { db } = await import('@/server/db/client')
-  const { postTags, tags } = await import('@/server/db/schema')
-  const { eq } = await import('drizzle-orm')
-
-  const rows = await db
-    .select({ slug: tags.slug, name: tags.name })
-    .from(postTags)
-    .innerJoin(tags, eq(postTags.tagId, tags.id))
-    .where(eq(postTags.postId, postId))
-
-  return rows
 }
