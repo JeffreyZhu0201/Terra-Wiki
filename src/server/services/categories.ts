@@ -34,7 +34,10 @@ export type Category = {
 
 export type CategoryNode = Category & {
   children: CategoryNode[]
+  /** 含子树的文章总数，公开侧边栏用这个。 */
   postCount: number
+  /** 直接挂在这一层的文章数，删除前判断"空分类"用这个。 */
+  ownPostCount: number
 }
 
 type CategoryRow = typeof categories.$inferSelect
@@ -109,7 +112,12 @@ export async function listCategoryTree(): Promise<CategoryNode[]> {
   const nodes = new Map<string, CategoryNode>()
   for (const row of rows) {
     const category = toCategory(row)
-    nodes.set(category.id, { ...category, children: [], postCount: ownCounts.get(category.id) ?? 0 })
+    nodes.set(category.id, {
+      ...category,
+      children: [],
+      postCount: ownCounts.get(category.id) ?? 0,
+      ownPostCount: ownCounts.get(category.id) ?? 0,
+    })
   }
 
   const roots: CategoryNode[] = []

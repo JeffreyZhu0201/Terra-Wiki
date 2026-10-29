@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { and, eq, gt } from 'drizzle-orm'
+import { and, eq, gt, isNull } from 'drizzle-orm'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { db } from '../db/client'
@@ -64,7 +64,13 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     .select({ id: users.id, email: users.email, name: users.name, role: users.role })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
-    .where(and(eq(sessions.tokenHash, sha256(token)), gt(sessions.expiresAt, new Date())))
+    .where(
+      and(
+        eq(sessions.tokenHash, sha256(token)),
+        gt(sessions.expiresAt, new Date()),
+        isNull(users.disabledAt),
+      ),
+    )
 
   const row = rows[0]
   if (!row) return null

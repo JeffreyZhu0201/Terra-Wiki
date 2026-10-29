@@ -32,6 +32,8 @@ export const users = pgTable('users', {
   name: text('name').notNull(),
   role: userRole('role').notNull().default('author'),
   localePref: localePref('locale_pref').notNull().default('zh'),
+  // 停用后立即无法登录，已有会话也失效。
+  disabledAt: timestamp('disabled_at', { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 })

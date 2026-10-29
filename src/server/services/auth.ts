@@ -26,10 +26,12 @@ export async function bootstrapAdmin(): Promise<void> {
   })
 }
 
-/** 校验邮箱密码，成功返回用户，失败返回 null。 */
+/** 校验邮箱密码，成功返回用户，失败返回 null。停用的成员视为登录失败。 */
 export async function authenticate(email: string, password: string): Promise<SessionUser | null> {
   const row = (await db.select().from(users).where(eq(users.email, email)))[0]
   if (!row) return null
+  // 停用的成员一律拒绝——密码对也不放行。
+  if (row.disabledAt) return null
   if (!(await verifyPassword(password, row.passwordHash))) return null
   return { id: row.id, email: row.email, name: row.name, role: row.role }
 }
