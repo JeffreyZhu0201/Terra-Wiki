@@ -246,4 +246,123 @@ describe('mcp tools', () => {
     const fetched = await client.callTool({ name: 'get_post', arguments: { postId } })
     expect(fetched.isError).toBe(true)
   })
+  it('creates a new tag on the fly', async () => {
+    const category = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const { ctx } = await tokenContext({ canPublish: false })
+    const client = await connect(ctx)
+
+    await client.callTool({
+      name: 'create_post',
+      arguments: {
+        categoryId: category.id,
+        title: 'T',
+        bodyMd: 'B',
+        tags: ['全新标签'],
+      },
+    })
+
+    const { listTags } = await import('../server/services/tags')
+    const tags = await listTags()
+    expect(tags.map((tag) => tag.name)).toContain('全新标签')
+  })
+
+  it('sees a title changed in the admin right away', async () => {
+    const category = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const { ctx } = await tokenContext({ canPublish: false })
+    const client = await connect(ctx)
+
+    const created = await client.callTool({
+      name: 'create_post',
+      arguments: { categoryId: category.id, title: '旧标题', bodyMd: 'B' },
+    })
+    const postId = JSON.parse(
+      (created.content as { type: 'text'; text: string }[])[0]!.text,
+    ).id as string
+
+    // 后台改标题（走 service 层）
+    const { updatePost } = await import('../server/services/posts')
+    await updatePost({ actor: ctx.actor, id: postId, title: '新标题' })
+
+    const fetched = await client.callTool({ name: 'get_post', arguments: { postId } })
+    const payload = JSON.parse(
+      (fetched.content as { type: 'text'; text: string }[])[0]!.text,
+    ) as { title: string }
+    expect(payload.title).toBe('新标题')
+  })
+
+  it('merges tags, restores a revision and deletes media', async () => {
+    const category = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const { ctx } = await tokenContext({ canPublish: false })
+    const client = await connect(ctx)
+
+    const { createTag } = await import('../server/services/tags')
+    const source = await createTag('源标签')
+    const target = await createTag('目标标签')
+
+    const merged = await client.callTool({
+      name: 'merge_tags',
+      arguments: { sourceId: source.id, targetId: target.id },
+    })
+    expect(merged.isError).toBeFalsy()
+
+    const created = await client.callTool({
+      name: 'create_post',
+      arguments: { categoryId: category.id, title: 'T', bodyMd: 'v1' },
+    })
+    const postId = JSON.parse(
+      (created.content as { type: 'text'; text: string }[])[0]!.text,
+    ).id as string
+
+    const { updatePost } = await import('../server/services/posts')
+    await updatePost({ actor: ctx.actor, id: postId, bodyMd: 'v2' })
+
+    const { listRevisions } = await import('../server/services/revisions')
+    const revisions = await listRevisions(postId)
+    const restored = await client.callTool({
+      name: 'restore_revision',
+      arguments: { postId, revisionId: revisions[0]!.id },
+    })
+    expect(restored.isError).toBeFalsy()
+
+    const { getPostById } = await import('../server/services/posts')
+    expect((await getPostById(postId))?.bodyMd).toBe('v1')
+
+    // 上传一张图再删掉
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    )
+    const { uploadMedia } = await import('../server/services/media')
+    const media = await uploadMedia({
+      actor: ctx.actor,
+      bytes: png,
+      filename: 'a.png',
+      mime: 'image/png',
+    })
+
+    const deleted = await client.callTool({
+      name: 'delete_media',
+      arguments: { mediaId: media.id },
+    })
+    expect(deleted.isError).toBeFalsy()
+    const { listMedia } = await import('../server/services/media')
+    expect((await listMedia()).map((item) => item.id)).not.toContain(media.id)
+  })
+
+  it('rejects an invalid or reserved category slug', async () => {
+    const { ctx } = await tokenContext({ canPublish: false })
+    const client = await connect(ctx)
+
+    const reserved = await client.callTool({
+      name: 'create_category',
+      arguments: { slug: 'admin', name: '撞保留字' },
+    })
+    expect(reserved.isError).toBe(true)
+
+    const invalid = await client.callTool({
+      name: 'create_category',
+      arguments: { slug: 'Not A Slug', name: '非法 slug' },
+    })
+    expect(invalid.isError).toBe(true)
+  })
 })
