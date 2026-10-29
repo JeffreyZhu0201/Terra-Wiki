@@ -34,3 +34,23 @@ export async function resetDb(): Promise<void> {
     role: 'admin',
   })
 }
+
+/** 再建一个用户，返回它的 id。测试里需要区分多个作者时用。 */
+export async function createTestUser(input: {
+  email: string
+  role?: 'admin' | 'author'
+}): Promise<string> {
+  const row = (
+    await db
+      .insert(users)
+      .values({
+        email: input.email,
+        passwordHash: TEST_ADMIN_HASH,
+        name: input.email,
+        role: input.role ?? 'author',
+      })
+      .returning()
+  )[0]
+  if (!row) throw new Error('测试用户创建失败')
+  return row.id
+}
