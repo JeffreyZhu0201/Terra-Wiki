@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+/*
+ * 设计令牌。「工程手册」方向：浅色纸面 + 普鲁士蓝强调 + 深色代码窗格。
+ * 暗色不是把亮色反过来——代码窗格在两种模式下都比页面底色更深。
+ */
+
+@theme inline {
+  --color-paper: #f4f5f6;
+  --color-surface: #ffffff;
+  --color-ink: #14171c;
+  --color-ink-muted: #5a6472;
+  --color-rule: #dde1e6;
+  --color-accent: #164a7b;
+  --color-accent-hover: #123c63;
+  --color-accent-soft: #eaf0f7;
+  --color-code-bg: #10161d;
+  --color-code-ink: #e6edf3;
+  --color-danger: #b42318;
+  --color-success: #147d52;
+}
+
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --color-paper: #0f1318;
+  --color-surface: #151a21;
+  --color-ink: #e6eaf0;
+  --color-ink-muted: #98a2b3;
+  --color-rule: #232a33;
+  --color-accent: #6ba8e0;
+  --color-accent-hover: #8bbdec;
+  --color-accent-soft: #16283a;
+  --color-code-bg: #0a0e13;
+  --color-code-ink: #e6edf3;
+}
