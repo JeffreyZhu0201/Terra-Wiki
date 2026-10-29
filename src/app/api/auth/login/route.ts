@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createSession, setSessionCookie } from '@/server/auth/session'
-import { authenticate } from '@/server/services/auth'
+import { authenticate, bootstrapAdmin } from '@/server/services/auth'
 
 const credentials = z.object({
   email: z.string().min(1, '请填写邮箱'),
@@ -14,6 +14,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!parsed.success) {
     return NextResponse.json({ ok: false, message: '请填写邮箱和密码' }, { status: 400 })
   }
+
+  // 首次登录时建初始管理员——不要求用户先访问过 /login。
+  await bootstrapAdmin()
 
   const user = await authenticate(parsed.data.email, parsed.data.password)
   if (!user) {

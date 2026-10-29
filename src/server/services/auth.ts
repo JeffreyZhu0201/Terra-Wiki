@@ -4,6 +4,15 @@ import { users } from '../db/schema'
 import { hashPassword, verifyPassword } from '../auth/password'
 import type { SessionUser } from '../auth/session'
 
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === '23505'
+  )
+}
+
 /**
  * 首次启动时创建初始管理员。users 表非空则什么都不做。
  * 缺少环境变量时抛错——静默跳过会让人卡在"登录不了但没有任何提示"。
@@ -18,12 +27,17 @@ export async function bootstrapAdmin(): Promise<void> {
     throw new Error('缺少 BOOTSTRAP_ADMIN_EMAIL 或 BOOTSTRAP_ADMIN_PASSWORD，无法创建初始管理员')
   }
 
-  await db.insert(users).values({
-    email,
-    passwordHash: await hashPassword(password),
-    name: '管理员',
-    role: 'admin',
-  })
+  try {
+    await db.insert(users).values({
+      email,
+      passwordHash: await hashPassword(password),
+      name: '管理员',
+      role: 'admin',
+    })
+  } catch (error) {
+    // 并发首访时另一个请求已经建好了——那不是错误。
+    if (!isUniqueViolation(error)) throw error
+  }
 }
 
 /** 校验邮箱密码，成功返回用户，失败返回 null。停用的成员视为登录失败。 */
