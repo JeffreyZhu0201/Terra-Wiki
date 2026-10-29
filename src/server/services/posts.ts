@@ -224,7 +224,7 @@ export async function updatePost(input: {
   id: string
   slug?: string
   title?: string
-  summary?: string
+  summary?: string | null
   bodyMd?: string
   tags?: string[]
   featured?: boolean
