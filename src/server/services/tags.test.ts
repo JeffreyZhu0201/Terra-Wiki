@@ -16,6 +16,11 @@ describe('tags', () => {
     expect(a.id).toBe(b.id)
   })
 
+  it('converts a Chinese name to a pinyin slug', async () => {
+    const tag = await createTag('冒烟测试')
+    expect(tag.slug).toBe('mao-yan-ce-shi')
+  })
+
   it('merges one tag into another without duplicating article links', async () => {
     const a = await createTag('mcp')
     const b = await createTag('agent')

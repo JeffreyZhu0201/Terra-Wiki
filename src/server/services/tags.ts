@@ -1,3 +1,4 @@
+import { pinyin } from 'pinyin'
 import { asc, eq, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { postTags, redirects, tags } from '../db/schema'
@@ -11,11 +12,20 @@ export type Tag = {
 
 export type TagWithCount = Tag & { postCount: number }
 
-/** 标签 slug：小写 + 非字母数字转连字符，最长 80。 */
+/**
+ * 标签 slug：小写 + 非字母数字转连字符，最长 80。
+ * 中文走拼音——标签是给人看的，中文名必须能用，URL 还得是 ASCII。
+ */
 export function tagSlug(name: string): string {
-  return name
-    .normalize('NFKC')
-    .toLowerCase()
+  const normalized = name.normalize('NFKC').toLowerCase()
+  const hasCjk = /[\u3400-\u9fff\uf900-\ufaff]/.test(normalized)
+  const ascii = hasCjk
+    ? pinyin(normalized, { style: 'normal' })
+        .map((syllables) => syllables[0] ?? '')
+        .join('-')
+    : normalized
+
+  return ascii
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 80)
@@ -46,6 +56,7 @@ export async function createTag(name: string): Promise<Tag> {
 
   const row = (await db.insert(tags).values({ slug, name: name.trim() }).returning())[0]
   if (!row) throw new DomainError('conflict', '标签创建失败', { name })
+
   return row
 }
 
