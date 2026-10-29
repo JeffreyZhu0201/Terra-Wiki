@@ -23,6 +23,9 @@ export type Actor =
   | { kind: 'user'; id: string; role: 'admin' | 'author' }
   | { kind: 'token'; id: string; authorId: string; role: 'admin' | 'author'; canPublish: boolean }
 
+/** 公开浏览用的身份：只看得到已发布内容。 */
+export const PUBLIC_ACTOR: Actor = { kind: 'user', id: '', role: 'author' }
+
 export type Post = {
   id: string
   categoryId: string

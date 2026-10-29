@@ -4,7 +4,7 @@ import { resetDb, createTestUser } from '../../../tests/db'
 import { db } from '../db/client'
 import { postRevisions } from '../db/schema'
 import { createCategory } from './categories'
-import { createPost, listPosts, publishPost, updatePost } from './posts'
+import { createPost, listPosts, publishPost, searchPosts, updatePost } from './posts'
 
 let author: { kind: 'user'; id: string; role: 'author' } = { kind: 'user', id: '', role: 'author' }
 
@@ -119,5 +119,37 @@ describe('posts', () => {
     await publishPost({ actor: author, id: post.id })
     const listed = await listPosts({ actor: author })
     expect(listed.items[0]?.tags.map((tag) => tag.slug).sort()).toEqual(['mcp', 'next-js'])
+  })
+
+  it('finds a chinese two-character term in the title', async () => {
+    const cat = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const p = await createPost({ actor: author, categoryId: cat.id, title: '索引的原理', bodyMd: '正文' })
+    await publishPost({ actor: author, id: p.id })
+    const hits = await searchPosts({ actor: author, q: '索引' })
+    expect(hits.map((h) => h.id)).toContain(p.id)
+  })
+
+  it('finds an english term in the body', async () => {
+    const cat = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const p = await createPost({
+      actor: author,
+      categoryId: cat.id,
+      title: 'A',
+      bodyMd: 'we use drizzle for the query layer',
+    })
+    await publishPost({ actor: author, id: p.id })
+    const hits = await searchPosts({ actor: author, q: 'drizzle' })
+    expect(hits.map((h) => h.id)).toContain(p.id)
+  })
+
+  it('does not return drafts from search', async () => {
+    const cat = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const p = await createPost({ actor: author, categoryId: cat.id, title: '草稿标题', bodyMd: '正文' })
+    const hits = await searchPosts({ actor: author, q: '草稿标题' })
+    expect(hits.map((h) => h.id)).not.toContain(p.id)
+  })
+
+  it('returns nothing for an empty query', async () => {
+    expect(await searchPosts({ actor: author, q: '   ' })).toEqual([])
   })
 })
