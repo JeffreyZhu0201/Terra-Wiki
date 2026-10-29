@@ -4,7 +4,7 @@ import { RevisionList } from '@/components/admin/RevisionList'
 import { getDictionary, getLocale } from '@/i18n'
 import { requireUser } from '@/server/auth/session'
 import { listCategoryTree } from '@/server/services/categories'
-import { getPostById } from '@/server/services/posts'
+import { getPostById, listPostTags } from '@/server/services/posts'
 import { listRevisions } from '@/server/services/revisions'
 import { listTags } from '@/server/services/tags'
 
@@ -37,7 +37,7 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
   }
   walk(tree)
 
-  const postTags = await loadPostTags(post.id)
+  const postTags = await listPostTags(post.id)
 
   return (
     <div className="space-y-10">
@@ -93,16 +93,4 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
       </section>
     </div>
   )
-}
-
-async function loadPostTags(postId: string): Promise<{ slug: string; name: string }[]> {
-  const { db } = await import('@/server/db/client')
-  const { postTags, tags } = await import('@/server/db/schema')
-  const { eq } = await import('drizzle-orm')
-
-  return db
-    .select({ slug: tags.slug, name: tags.name })
-    .from(postTags)
-    .innerJoin(tags, eq(postTags.tagId, tags.id))
-    .where(eq(postTags.postId, postId))
 }
