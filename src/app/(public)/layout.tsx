@@ -3,11 +3,12 @@ import { CodeCopyEnabler } from '@/components/article/CodeCopyEnabler'
 import { CategoryTree } from '@/components/layout/CategoryTree'
 import { TopBar } from '@/components/layout/TopBar'
 import { listCategoryTree } from '@/server/services/categories'
+import { getSettings } from '@/server/services/settings'
 
 export const dynamic = 'force-dynamic'
 
 export default async function PublicLayout({ children }: { children: ReactNode }) {
-  const tree = await listCategoryTree()
+  const [tree, settings] = await Promise.all([listCategoryTree(), getSettings()])
 
   return (
     <div className="min-h-screen bg-paper text-ink">
@@ -21,6 +22,12 @@ export default async function PublicLayout({ children }: { children: ReactNode }
           {children}
         </main>
       </div>
+
+      {settings.siteFooter ? (
+        <footer className="mx-auto w-full max-w-[1440px] px-5 py-8 text-center font-mono text-xs text-ink-muted">
+          {settings.siteFooter}
+        </footer>
+      ) : null}
 
       <CodeCopyEnabler />
     </div>

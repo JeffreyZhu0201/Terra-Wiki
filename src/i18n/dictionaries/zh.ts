@@ -120,6 +120,12 @@ const zh = {
   adminSettingsDescription: '站点描述',
   adminSettingsUrl: '站点地址',
   adminSettingsRssTitle: 'RSS 标题',
+  adminSettingsKeywords: '站点关键词',
+  adminSettingsFooter: '页脚文字',
+  adminSettingsKeywordsHint: '逗号分隔，用于页面 meta 与搜索引擎',
+  adminSettingsFromEnv: '初始值来自 .env',
+  adminSettingsFromDb: '已保存到数据库',
+  adminSettingsReset: '恢复初始值',
   adminLogout: '退出登录',
   adminBackToSite: '回到站点',
   // 与 MCP 侧共用一份文案——同一个错误，两个通道显示同一段话。

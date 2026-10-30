@@ -5,6 +5,7 @@ import { LocaleToggle } from '@/components/layout/LocaleToggle'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
 import { getDictionary, getLocale } from '@/i18n'
 import { requireUser } from '@/server/auth/session'
+import { getSettings } from '@/server/services/settings'
 import { logoutAction } from './actions'
 
 export const dynamic = 'force-dynamic'
@@ -13,6 +14,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   const user = await requireUser()
   const locale = await getLocale()
   const dict = getDictionary(locale)
+  const settings = await getSettings()
 
   const items = [
     { href: '/admin', label: dict.adminDashboard },
@@ -36,7 +38,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       <header className="border-b border-rule">
         <div className="mx-auto flex h-14 max-w-[1440px] items-center gap-4 px-5">
           <Link href="/" className="font-serif text-lg tracking-wide text-ink">
-            TERRA
+            {settings.siteName}
           </Link>
           <span className="font-mono text-xs text-ink-muted">{dict.adminDashboard}</span>
 
