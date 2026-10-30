@@ -21,6 +21,15 @@ if (!token) {
 // 服务端如果给了会话 id，后续请求要带回去。
 let sessionId = null
 
+// 请求行里的 JSON-RPC id。非 JSON-RPC 响应要靠它回一条合法错误。
+function requestId(line) {
+  try {
+    return JSON.parse(line).id ?? null
+  } catch {
+    return null
+  }
+}
+
 async function forward(line) {
   const headers = {
     'content-type': 'application/json',
@@ -38,11 +47,23 @@ async function forward(line) {
   if (!text.trim()) return
 
   // stdout 是 JSON-RPC 通道，只写一行一行合法的 JSON。
+  let payload
   try {
-    process.stdout.write(`${JSON.stringify(JSON.parse(text))}\n`)
+    payload = JSON.parse(text)
   } catch {
-    process.stdout.write(`${text.trim()}\n`)
+    // 服务端回的不是 JSON-RPC（比如 401 的纯文本 "Unauthorized"）。
+    // 原文不能直接写进 stdout——那会让客户端解析失败，把认证失败报成
+    // 协议错误。改写成一条合法的 JSON-RPC error，原文留在 stderr。
+    payload = {
+      jsonrpc: '2.0',
+      id: requestId(line),
+      error: {
+        code: -32000,
+        message: `HTTP ${response.status}: ${text.trim().slice(0, 300)}`,
+      },
+    }
   }
+  process.stdout.write(`${JSON.stringify(payload)}\n`)
 
   if (!response.ok) {
     process.stderr.write(`HTTP ${response.status}: ${text.slice(0, 300)}\n`)
