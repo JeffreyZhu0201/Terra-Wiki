@@ -2,9 +2,17 @@ import { describe, expect, it, beforeEach } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { resetDb, createTestUser } from '../../../tests/db'
 import { db } from '../db/client'
-import { postRevisions } from '../db/schema'
+import { postRevisions, posts } from '../db/schema'
 import { createCategory } from './categories'
-import { createPost, listPosts, publishPost, searchPosts, updatePost } from './posts'
+import {
+  countPostsByDay,
+  createPost,
+  listPosts,
+  publishPost,
+  PUBLIC_ACTOR,
+  searchPosts,
+  updatePost,
+} from './posts'
 
 let author: { kind: 'user'; id: string; role: 'author' } = { kind: 'user', id: '', role: 'author' }
 
@@ -168,5 +176,41 @@ describe('posts', () => {
 
   it('returns nothing for an empty query', async () => {
     expect(await searchPosts({ actor: author, q: '   ' })).toEqual([])
+  })
+  it('counts published posts per day and ignores drafts', async () => {
+    const cat = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const stamp = async (id: string, iso: string) => {
+      await db.update(posts).set({ publishedAt: new Date(iso) }).where(eq(posts.id, id))
+    }
+    const a = await createPost({ actor: author, categoryId: cat.id, title: 'A', bodyMd: 'x' })
+    await publishPost({ actor: author, id: a.id })
+    await stamp(a.id, '2026-10-12T02:00:00')
+    const b = await createPost({ actor: author, categoryId: cat.id, title: 'B', bodyMd: 'x' })
+    await publishPost({ actor: author, id: b.id })
+    await stamp(b.id, '2026-10-12T23:00:00')
+    const draft = await createPost({ actor: author, categoryId: cat.id, title: 'C', bodyMd: 'x' })
+    await db.update(posts).set({ publishedAt: new Date('2026-10-12T12:00:00') }).where(eq(posts.id, draft.id))
+
+    const counts = await countPostsByDay(new Date(2026, 9, 1), new Date(2026, 10, 1))
+    expect(counts.get('2026-10-12')).toBe(2)
+    expect(counts.size).toBe(1)
+  })
+
+  it('filters the list by publication day', async () => {
+    const cat = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const on = async (title: string, iso: string) => {
+      const p = await createPost({ actor: author, categoryId: cat.id, title, bodyMd: 'x' })
+      await publishPost({ actor: author, id: p.id })
+      await db.update(posts).set({ publishedAt: new Date(iso) }).where(eq(posts.id, p.id))
+      return p
+    }
+    const early = await on('早', '2026-10-11T23:59:59')
+    const late = await on('晚', '2026-10-12T00:00:01')
+    await on('次日', '2026-10-13T00:00:00')
+
+    const { items } = await listPosts({ actor: PUBLIC_ACTOR, day: '2026-10-12' })
+    const ids = items.map((i) => i.id)
+    expect(ids).toContain(late.id)
+    expect(ids).not.toContain(early.id)
   })
 })
