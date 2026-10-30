@@ -1,16 +1,17 @@
 import type { MetadataRoute } from 'next'
 import { listCategoryTree } from '@/server/services/categories'
 import { listPosts, PUBLIC_ACTOR } from '@/server/services/posts'
+import { getSettings } from '@/server/services/settings'
 
 export const dynamic = 'force-dynamic'
 
-const SITE_URL = process.env.SITE_URL ?? 'http://localhost:3000'
-
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [tree, posts] = await Promise.all([
+  const [tree, posts, settings] = await Promise.all([
     listCategoryTree(),
     listPosts({ actor: PUBLIC_ACTOR, limit: 5000 }),
+    getSettings(),
   ])
+  const SITE_URL = settings.siteUrl
 
   const flatten = (nodes: typeof tree): string[] =>
     nodes.flatMap((node) => [node.path, ...flatten(node.children)])

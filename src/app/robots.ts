@@ -1,10 +1,12 @@
 import type { MetadataRoute } from 'next'
+import { getSettings } from '@/server/services/settings'
 
-const SITE_URL = process.env.SITE_URL ?? 'http://localhost:3000'
+export const dynamic = 'force-dynamic'
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const { siteUrl } = await getSettings()
   return {
     rules: [{ userAgent: '*', allow: '/', disallow: '/admin' }],
-    sitemap: `${SITE_URL}/sitemap.xml`,
+    sitemap: `${siteUrl}/sitemap.xml`,
   }
 }

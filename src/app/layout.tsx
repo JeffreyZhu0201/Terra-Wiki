@@ -2,12 +2,8 @@ import type { Metadata } from 'next'
 import { ThemeProvider } from 'next-themes'
 import type { ReactNode } from 'react'
 import { getLocale } from '@/i18n'
+import { getSettings } from '@/server/services/settings'
 import './globals.css'
-
-export const metadata: Metadata = {
-  title: 'Terra-Wiki',
-  description: '面向程序员的技术文档站',
-}
 
 /**
  * 字体走浏览器运行时加载，不用 next/font/google。
@@ -22,6 +18,19 @@ const FONT_HREF =
 
 // 界面语言来自 cookie / Accept-Language，根布局必须动态渲染。
 export const dynamic = 'force-dynamic'
+
+/**
+ * 站点标题与描述来自设置表——后台改了立即生效。
+ * 根布局必须动态渲染，metadata 只能走 generateMetadata。
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSettings()
+  return {
+    title: settings.siteName,
+    description: settings.siteDescription,
+    ...(settings.siteKeywords ? { keywords: settings.siteKeywords } : {}),
+  }
+}
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getLocale()
