@@ -29,6 +29,7 @@ import { listRevisions, restoreRevision } from '@/server/services/revisions'
 import { createTag, listTags, mergeTags, renameTag } from '@/server/services/tags'
 import type { Actor } from '@/server/services/posts'
 import type { McpContext } from './context'
+import { MCP_INSTRUCTIONS } from './instructions'
 
 export type ToolResult = {
   content: { type: 'text'; text: string }[]
@@ -651,7 +652,11 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
 export function createMcpServer(ctx: McpContext): McpServer {
   const server = new McpServer(
     { name: 'terra-wiki', version: '0.1.0' },
-    { capabilities: { tools: {} } },
+    {
+      capabilities: { tools: {} },
+      // 随 initialize 下发，Agent 不读文档也能知道写入契约。
+      instructions: MCP_INSTRUCTIONS,
+    },
   )
   registerTools(server, ctx)
   return server

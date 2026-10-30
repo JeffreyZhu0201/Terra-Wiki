@@ -72,6 +72,18 @@ describe('mcp tools', () => {
     expect(await verifyMcpToken('not-a-real-token')).toBeNull()
   })
 
+  it('tells the agent the write contract in the server instructions', async () => {
+    const { ctx } = await tokenContext({ canPublish: false })
+    const client = await connect(ctx)
+
+    const instructions = client.getInstructions()
+    expect(instructions).toBeTruthy()
+    // 关键约定必须写在 instructions 里——Agent 不读文档。
+    expect(instructions).toContain('叶子分类')
+    expect(instructions).toContain('can_publish')
+    expect(instructions).toContain('publish_post')
+  })
+
   it('exposes the content tool set but no platform management tools', async () => {
     const { ctx } = await tokenContext({ canPublish: false })
     const client = await connect(ctx)
