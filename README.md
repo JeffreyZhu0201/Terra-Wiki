@@ -131,3 +131,9 @@ src/
 ## 运维
 
 备份、恢复、升级、Token 轮换见 [docs/operations.md](docs/operations.md)。
+
+## 协作
+
+分支模型（`main` / `develop` / `feature` / `release` / `hotfix`）、PR 流程、
+发布与热修步骤、分支保护规则的落地命令见 [docs/branching.md](docs/branching.md)，
+精简版写在 [AGENTS.md](AGENTS.md) 的「分支模型与工作流」章节。

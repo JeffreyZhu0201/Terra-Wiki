@@ -1,0 +1,55 @@
+name: CI
+
+# CI 校验的内容严格等于 AGENTS.md 里的「完成的定义」：typecheck + test。
+# 没有 lint 步骤——仓库没有装 linter，加了必挂。
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      # 与 tests/setup.ts 的默认值一致；显式写出来是为了让 CI 的连接串一眼可见。
+      TEST_DATABASE_URL: postgres://terra:terra@localhost:55432/terra_test
+
+    services:
+      db-test:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: terra
+          POSTGRES_PASSWORD: terra
+          POSTGRES_DB: terra_test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U terra -d terra_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 版本取自 package.json 的 packageManager（pnpm@12.15.0）。
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
