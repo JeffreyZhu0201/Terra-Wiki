@@ -22,7 +22,7 @@ describe('revisions', () => {
     await updatePost({ actor, id: post.id, bodyMd: 'y' })
     await updatePost({ actor, id: post.id, title: 'B' })
 
-    const revs = await listRevisions(post.id)
+    const revs = await listRevisions({ postId: post.id, actor })
     // 建文章不算一次修改，所以是 2 条而不是 3 条。
     expect(revs).toHaveLength(2)
     // 快照存的是"改之前"的内容，最新一条就是上次改动前的样子。
@@ -37,7 +37,7 @@ describe('revisions', () => {
     const { publishPost } = await import('./posts')
     await publishPost({ actor, id: post.id })
 
-    expect(await listRevisions(post.id)).toHaveLength(0)
+    expect(await listRevisions({ postId: post.id, actor })).toHaveLength(0)
   })
 
   it('restores content but keeps tags and status', async () => {
@@ -50,7 +50,7 @@ describe('revisions', () => {
       tags: ['mcp'],
     })
     await updatePost({ actor, id: post.id, bodyMd: 'v2' })
-    const rev = (await listRevisions(post.id))[0]!
+    const rev = (await listRevisions({ postId: post.id, actor }))[0]!
     await restoreRevision({ actor, postId: post.id, revisionId: rev.id })
 
     const after = await getPostById(post.id)
@@ -58,7 +58,7 @@ describe('revisions', () => {
     expect(after?.status).toBe('draft')
 
     // 恢复本身也是一次内容修改，所以又多了一条版本。
-    expect(await listRevisions(post.id)).toHaveLength(2)
+    expect(await listRevisions({ postId: post.id, actor })).toHaveLength(2)
   })
 
   it('rejects a revision belonging to another post', async () => {
@@ -66,7 +66,7 @@ describe('revisions', () => {
     const a = await createPost({ actor, categoryId: cat.id, title: 'A', bodyMd: 'x' })
     const b = await createPost({ actor, categoryId: cat.id, title: 'B', bodyMd: 'y' })
     await updatePost({ actor, id: a.id, bodyMd: 'a2' })
-    const rev = (await listRevisions(a.id))[0]!
+    const rev = (await listRevisions({ postId: a.id, actor }))[0]!
 
     await expect(
       restoreRevision({ actor, postId: b.id, revisionId: rev.id }),

@@ -246,6 +246,45 @@ describe('mcp tools', () => {
     const fetched = await client.callTool({ name: 'get_post', arguments: { postId } })
     expect(fetched.isError).toBe(true)
   })
+
+  it('does not show another author the revisions of their post', async () => {
+    const category = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const otherId = await createTestUser({ email: 'other@example.com' })
+
+    const { ctx } = await tokenContext({ canPublish: false })
+    const client = await connect(ctx)
+
+    // 用另一个作者的身份建一篇草稿，再改一次产生一个版本
+    const other = await createMcpServer({
+      actor: { kind: 'user', id: otherId, role: 'author' },
+      tokenId: 'other',
+    })
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
+    const otherClient = new Client({ name: 'other', version: '0.0.0' })
+    await Promise.all([other.connect(serverTransport), otherClient.connect(clientTransport)])
+    const created = await otherClient.callTool({
+      name: 'create_post',
+      arguments: { categoryId: category.id, title: '别人的文章', bodyMd: 'x' },
+    })
+    const postId = JSON.parse(
+      (created.content as { type: 'text'; text: string }[])[0]!.text,
+    ).id as string
+    await otherClient.callTool({
+      name: 'update_post',
+      arguments: { postId, bodyMd: 'y' },
+    })
+
+    const listed = await client.callTool({
+      name: 'list_revisions',
+      arguments: { postId },
+    })
+    expect(listed.isError).toBe(true)
+    const text = (listed.content as { type: 'text'; text: string }[])[0]!.text
+    // 报「不存在」而不是「没权限」——不该让人知道这篇草稿存在。
+    expect(text).toContain('文章不存在')
+    expect(text).not.toContain('别人的文章')
+  })
+
   it('creates a new tag on the fly', async () => {
     const category = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
     const { ctx } = await tokenContext({ canPublish: false })
@@ -317,7 +356,7 @@ describe('mcp tools', () => {
     await updatePost({ actor: ctx.actor, id: postId, bodyMd: 'v2' })
 
     const { listRevisions } = await import('../server/services/revisions')
-    const revisions = await listRevisions(postId)
+    const revisions = await listRevisions({ postId, actor: ctx.actor })
     const restored = await client.callTool({
       name: 'restore_revision',
       arguments: { postId, revisionId: revisions[0]!.id },

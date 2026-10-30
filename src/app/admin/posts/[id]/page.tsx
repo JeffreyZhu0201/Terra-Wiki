@@ -22,7 +22,7 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
   const [tree, tags, revisions] = await Promise.all([
     listCategoryTree(),
     listTags(),
-    listRevisions(post.id),
+    listRevisions({ postId: post.id, actor: { kind: 'user', id: user.id, role: user.role } }),
   ])
 
   const leaves: { id: string; name: string; path: string }[] = []

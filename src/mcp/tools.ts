@@ -271,12 +271,12 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
   server.registerTool(
     'list_revisions',
     {
-      description: '列出某篇文章的历史版本（最新在前）。',
+      description: '列出某篇文章的历史版本（最新在前）。只对作者本人与管理员可见。',
       inputSchema: z.object({ postId: z.string() }),
     },
     async ({ postId }) =>
       run(async () => {
-        const revisions = await listRevisions(postId)
+        const revisions = await listRevisions({ postId, actor })
         return revisions.map((revision) => ({
           id: revision.id,
           title: revision.title,
