@@ -85,6 +85,8 @@ const zh = {
   adminReload: '重新加载',
   adminNewCategory: '新建分类',
   adminNewTag: '新建标签',
+  adminTagPlaceholder: '用逗号分隔多个标签',
+  adminTagRemove: '移除标签',
   adminRename: '改名',
   adminMove: '移动',
   adminDelete: '删除',

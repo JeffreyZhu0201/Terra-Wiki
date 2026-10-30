@@ -44,6 +44,8 @@ export default async function NewPostPage() {
           archive: dict.adminArchive,
           conflict: dict.adminConflict,
           reload: dict.adminReload,
+          tagPlaceholder: dict.adminTagPlaceholder,
+          tagRemove: dict.adminTagRemove,
         }}
       />
     </div>
