@@ -97,9 +97,14 @@ export function MediaPicker({
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {items.map((item) => (
             <li key={item.id} className="border border-rule bg-surface p-2">
-              {/* 图片来自本站上传目录，Next 图片优化对本地磁盘不适用。 */}
+              {/* 长图（手机截图）用 cover 会裁掉中间，正好裁成一片空白——
+                  contain 让整张图缩进框里，能看出是什么图。 */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={item.url} alt={item.filename} className="h-24 w-full object-cover" />
+              <img
+                src={item.url}
+                alt={item.filename}
+                className="h-24 w-full bg-paper object-contain"
+              />
               {onInsert ? (
                 <button
                   type="button"
