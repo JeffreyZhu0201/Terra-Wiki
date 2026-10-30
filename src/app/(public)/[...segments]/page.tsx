@@ -145,10 +145,11 @@ export default async function CatchAllPage({ params, searchParams }: Props) {
         </div>
 
         {/*
-          右栏 fixed 钉在视口右下：正文在 main 里滚，栏若留在文档流里就会跟着滚。
+          右栏 fixed 钉在视口：正文在 main 里滚，栏若留在文档流里就会跟着滚。
+          pt-8 与正文、左栏的顶 padding 一致，三栏同一水平线起头。
           grid 的第二列保留宽度占位，正文列不会被日历压到。
         */}
-        <aside className="fixed bottom-0 right-[max(1.25rem,calc((100vw-1440px)/2+1.25rem))] top-14 hidden w-[14rem] flex-col pb-8 xl:flex">
+        <aside className="fixed bottom-0 right-[max(1.25rem,calc((100vw-1440px)/2+1.25rem))] top-14 hidden w-[14rem] flex-col pb-8 pt-8 xl:flex">
           <TableOfContents entries={toc} label={dict.postTableOfContents} />
           <div className="mt-auto">
             <PublishCalendar

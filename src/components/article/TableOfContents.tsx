@@ -104,7 +104,12 @@ export function TableOfContents({ entries, label }: { entries: TocEntry[]; label
       <p className="mb-3 border-b border-rule pb-2 font-mono text-xs uppercase tracking-wider text-ink-muted">
         {label}
       </p>
-      <div ref={listRef} className="max-h-[calc(100vh-18rem)] overflow-y-auto pr-1">
+      {/*
+        rail-scroll 隐藏滚动条但保留滚动。
+        高度上限扣掉顶栏 3.5rem、右栏上下 padding 4rem、日历约 13rem 与一点余量，
+        目录再长也不会压到日历。
+      */}
+      <div ref={listRef} className="rail-scroll max-h-[calc(100vh-22rem)] overflow-y-auto pr-1">
         <TocList entries={entries} activeId={activeId} />
       </div>
     </nav>

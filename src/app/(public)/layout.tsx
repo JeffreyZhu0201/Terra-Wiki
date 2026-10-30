@@ -22,11 +22,15 @@ export default async function PublicLayout({ children }: { children: ReactNode }
       <TopBar tree={tree} />
 
       <div className="mx-auto flex w-full min-h-0 max-w-[1440px] flex-1 gap-10 px-5">
-        <aside className="hidden w-60 shrink-0 overflow-y-auto py-8 lg:block">
+        <aside className="rail-scroll hidden w-60 shrink-0 overflow-y-auto py-8 lg:block">
           <CategoryTree nodes={tree} />
         </aside>
 
-        <main id="content" className="min-w-0 flex-1 overflow-y-auto">
+        {/*
+          rail-scroll：main 的滚动条贴在窗口右缘，视觉上会误以为是右侧栏的滚动条。
+          隐藏它但保留滚动；阅读进度由目录高亮指示，不靠滚动条。
+        */}
+        <main id="content" className="rail-scroll min-w-0 flex-1 overflow-y-auto">
           <div className="py-8">{children}</div>
 
           {settings.siteFooter ? (
