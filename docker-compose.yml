@@ -40,7 +40,13 @@ services:
       - "3000:3000"
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-terra}:${POSTGRES_PASSWORD:-terra}@db:5432/${POSTGRES_DB:-terra}
+      # 站点设置的初始值；后台设置页改过之后以数据库为准。
+      SITE_NAME: ${SITE_NAME:-Terra-Wiki}
+      SITE_DESCRIPTION: ${SITE_DESCRIPTION:-}
       SITE_URL: ${SITE_URL:-http://localhost:3000}
+      RSS_TITLE: ${RSS_TITLE:-Terra-Wiki}
+      SITE_KEYWORDS: ${SITE_KEYWORDS:-}
+      SITE_FOOTER: ${SITE_FOOTER:-}
       UPLOAD_DIR: /app/uploads
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?请在 .env 里设置 BOOTSTRAP_ADMIN_EMAIL}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?请在 .env 里设置 BOOTSTRAP_ADMIN_PASSWORD}

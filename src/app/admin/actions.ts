@@ -15,7 +15,7 @@ import {
 import { createTag, deleteTag, mergeTags, renameTag } from '@/server/services/tags'
 import { deleteMedia, uploadMedia } from '@/server/services/media'
 import { createUser, setUserDisabled, setUserRole } from '@/server/services/users'
-import { updateSettings } from '@/server/services/settings'
+import { resetSetting, updateSettings, type SettingKey } from '@/server/services/settings'
 import type { SessionUser } from '@/server/auth/session'
 
 /** 表单 action 的结果。带错误信息时页面会显示横幅。 */
@@ -349,6 +349,25 @@ export async function setUserDisabledAction(formData: FormData): Promise<void> {
   )
 }
 
+/** 恢复某项到 env 的初始值——删掉 DB 里的覆盖。 */
+export async function resetSettingAction(formData: FormData): Promise<void> {
+  const admin = await requireAdmin()
+  const key = str(formData, 'key') as SettingKey
+
+  await run(
+    '/admin/settings',
+    async () => {
+      await resetSetting(key)
+      await recordAudit({
+        actor: { kind: 'user', id: admin.id, role: admin.role },
+        action: 'settings.reset',
+        target: { type: 'settings', id: key },
+      })
+    },
+    '已恢复初始值',
+  )
+}
+
 export async function updateSettingsAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin()
 
@@ -360,6 +379,8 @@ export async function updateSettingsAction(formData: FormData): Promise<void> {
         siteDescription: str(formData, 'siteDescription'),
         siteUrl: str(formData, 'siteUrl'),
         rssTitle: str(formData, 'rssTitle'),
+        siteKeywords: str(formData, 'siteKeywords'),
+        siteFooter: str(formData, 'siteFooter'),
       })
       await recordAudit({
         actor: { kind: 'user', id: admin.id, role: admin.role },
