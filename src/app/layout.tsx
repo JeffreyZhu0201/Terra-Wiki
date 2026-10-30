@@ -27,7 +27,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const locale = await getLocale()
 
   return (
-    <html lang={locale}>
+    // next-themes 会在水合前往 <html> 写 class / color-scheme，
+    // 服务端不知道最终主题——这里的属性差异是预期行为，要压掉警告。
+    <html lang={locale} suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
