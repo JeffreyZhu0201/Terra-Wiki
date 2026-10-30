@@ -72,6 +72,67 @@ describe('mcp tools', () => {
     expect(await verifyMcpToken('not-a-real-token')).toBeNull()
   })
 
+  it('refuses to overwrite a post that changed under the agent', async () => {
+    const category = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const { ctx } = await tokenContext({ canPublish: false })
+    const client = await connect(ctx)
+
+    const created = await client.callTool({
+      name: 'create_post',
+      arguments: { categoryId: category.id, title: 'T', bodyMd: 'v1' },
+    })
+    const payload = JSON.parse(
+      (created.content as { type: 'text'; text: string }[])[0]!.text,
+    ) as { id: string; updatedAt: string }
+
+    // 别人在 Agent 读完之后改了文章
+    const { updatePost } = await import('../server/services/posts')
+    await updatePost({ actor: ctx.actor, id: payload.id, bodyMd: 'v2' })
+
+    const result = await client.callTool({
+      name: 'update_post',
+      arguments: { postId: payload.id, bodyMd: 'v3', expectedUpdatedAt: payload.updatedAt },
+    })
+    expect(result.isError).toBe(true)
+    const text = (result.content as { type: 'text'; text: string }[])[0]!.text
+    expect(text).toContain('他人修改')
+
+    // 用当前的时间戳就能正常写入
+    const { getPostById } = await import('../server/services/posts')
+    const current = await getPostById(payload.id)
+    const ok = await client.callTool({
+      name: 'update_post',
+      arguments: {
+        postId: payload.id,
+        bodyMd: 'v4',
+        expectedUpdatedAt: current!.updatedAt.toISOString(),
+      },
+    })
+    expect(ok.isError).toBeFalsy()
+  })
+
+  it('rejects an invalid expectedUpdatedAt instead of skipping the check', async () => {
+    const category = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const { ctx } = await tokenContext({ canPublish: false })
+    const client = await connect(ctx)
+
+    const created = await client.callTool({
+      name: 'create_post',
+      arguments: { categoryId: category.id, title: 'T', bodyMd: 'v1' },
+    })
+    const postId = JSON.parse(
+      (created.content as { type: 'text'; text: string }[])[0]!.text,
+    ).id as string
+
+    const result = await client.callTool({
+      name: 'update_post',
+      arguments: { postId, bodyMd: 'v2', expectedUpdatedAt: 'not-a-date' },
+    })
+    expect(result.isError).toBe(true)
+    const text = (result.content as { type: 'text'; text: string }[])[0]!.text
+    expect(text).toContain('不是合法的时间')
+  })
+
   it('tells the agent the write contract in the server instructions', async () => {
     const { ctx } = await tokenContext({ canPublish: false })
     const client = await connect(ctx)

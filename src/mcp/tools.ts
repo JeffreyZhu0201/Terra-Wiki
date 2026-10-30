@@ -323,7 +323,15 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
           action: 'post.create',
           target: { type: 'post', id: post.id },
         })
-        return { id: post.id, slug: post.slug, status: post.status, title: post.title }
+        return {
+          id: post.id,
+          slug: post.slug,
+          status: post.status,
+          title: post.title,
+          // 连同 updatedAt 一起返回：Agent 拿到就能直接喂给下一次
+          // update_post 的乐观锁，不必多读一次。
+          updatedAt: post.updatedAt.toISOString(),
+        }
       }),
   )
 
@@ -332,7 +340,9 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
     {
       description:
         '更新文章内容。tags 是最终集合；addTags / removeTags 做增删。' +
-        '不接受 status——状态变更走 publish_post / unpublish_post / archive_post。',
+        '不接受 status——状态变更走 publish_post / unpublish_post / archive_post。' +
+        '传 expectedUpdatedAt（上次读到的 updatedAt）可做乐观锁，' +
+        '文章被别人改过时返回冲突而不是静默覆盖。',
       inputSchema: z.strictObject({
         postId: z.string(),
         title: z.string().optional(),
@@ -342,13 +352,29 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
         tags: z.array(z.string()).optional().describe('最终标签集合'),
         addTags: z.array(z.string()).optional(),
         removeTags: z.array(z.string()).optional(),
+        expectedUpdatedAt: z
+          .string()
+          .optional()
+          .describe('上次读到的 updatedAt（ISO 8601）。与当前不一致时拒绝写入'),
       }),
     },
-    async ({ postId, title, summary, bodyMd, slug, tags, addTags, removeTags }) =>
+    async ({ postId, title, summary, bodyMd, slug, tags, addTags, removeTags, expectedUpdatedAt }) =>
       run(async () => {
         const current = await getPostById(postId)
         if (!current) throw new DomainError('not_found', '文章不存在', { postId })
         assertCanModify(actor, current)
+
+        let expected: Date | undefined
+        if (expectedUpdatedAt !== undefined) {
+          expected = new Date(expectedUpdatedAt)
+          // 非法日期会让 service 的比较算出 NaN，冲突检查静默失效——
+          // 宁可报参数错，也不能让它变成"没检查"。
+          if (Number.isNaN(expected.getTime())) {
+            throw new DomainError('invalid', 'expectedUpdatedAt 不是合法的时间', {
+              expectedUpdatedAt,
+            })
+          }
+        }
 
         let nextTags: string[] | undefined
         if (tags !== undefined || addTags !== undefined || removeTags !== undefined) {
@@ -372,6 +398,7 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
           ...(bodyMd !== undefined ? { bodyMd } : {}),
           ...(slug !== undefined ? { slug } : {}),
           ...(nextTags !== undefined ? { tags: nextTags } : {}),
+          ...(expected !== undefined ? { expectedUpdatedAt: expected } : {}),
         })
         await recordAudit({
           actor,
