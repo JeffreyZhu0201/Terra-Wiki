@@ -11,3 +11,6 @@ build/
 .zcode/
 tsconfig.tsbuildinfo
 next-env.d.ts
+
+# 运行时上传的媒体文件
+public/uploads/
