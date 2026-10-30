@@ -16,6 +16,7 @@ import { createTag, deleteTag, mergeTags, renameTag } from '@/server/services/ta
 import { deleteMedia, uploadMedia } from '@/server/services/media'
 import { createUser, setUserDisabled, setUserRole } from '@/server/services/users'
 import { resetSetting, updateSettings, type SettingKey } from '@/server/services/settings'
+import { setTokenCanPublish } from '@/server/services/tokens'
 import type { SessionUser } from '@/server/auth/session'
 
 /** 表单 action 的结果。带错误信息时页面会显示横幅。 */
@@ -196,6 +197,27 @@ export async function deleteTagAction(formData: FormData): Promise<void> {
       })
     },
     '标签已删除',
+  )
+}
+
+/** 改成员 Token 的发布权限。默认关闭——留一个给人确认的环节。 */
+export async function setTokenPublishAction(formData: FormData): Promise<void> {
+  const admin = await requireAdmin()
+  const authorId = str(formData, 'authorId')
+  const canPublish = str(formData, 'canPublish') === 'true'
+
+  await run(
+    '/admin/team',
+    async () => {
+      await setTokenCanPublish(authorId, canPublish)
+      await recordAudit({
+        actor: { kind: 'user', id: admin.id, role: admin.role },
+        action: 'token.canPublish',
+        target: { type: 'token', id: authorId },
+        meta: { canPublish },
+      })
+    },
+    canPublish ? '已允许该 Token 直接发布' : '已收回该 Token 的发布权限',
   )
 }
 
