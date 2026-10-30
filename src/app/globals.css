@@ -63,6 +63,9 @@ body {
 /* 正文列宽：中文一行不超过 68 字符 */
 .prose {
   max-width: 68ch;
+  /* 中文没有词边界，长段落不换行时 min-content 很大——
+     作为 flex/grid 子项会被撑破列宽，必须显式归零。 */
+  min-width: 0;
   font-size: 16px;
   line-height: 1.75;
   color: var(--color-ink);
