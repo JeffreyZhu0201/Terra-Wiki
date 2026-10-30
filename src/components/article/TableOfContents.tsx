@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { TocEntry } from '@/server/markdown/toc'
 
 export function TableOfContents({ entries, label }: { entries: TocEntry[]; label: string }) {
   const [activeId, setActiveId] = useState<string | null>(entries[0]?.id ?? null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (entries.length === 0) return
@@ -29,6 +30,14 @@ export function TableOfContents({ entries, label }: { entries: TocEntry[]; label
     return () => observer.disconnect()
   }, [entries])
 
+  // 目录过高会滚动：让当前阅读到的那一项保持在可视区。
+  // block:'nearest' 只滚必要的最小距离，且不会连带滚动页面。
+  useEffect(() => {
+    if (!activeId) return
+    const link = listRef.current?.querySelector<HTMLElement>(`a[href="#${CSS.escape(activeId)}"]`)
+    link?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [activeId])
+
   if (entries.length === 0) return null
 
   return (
@@ -36,7 +45,9 @@ export function TableOfContents({ entries, label }: { entries: TocEntry[]; label
       <p className="mb-3 border-b border-rule pb-2 font-mono text-xs uppercase tracking-wider text-ink-muted">
         {label}
       </p>
-      <TocList entries={entries} activeId={activeId} />
+      <div ref={listRef} className="max-h-[calc(100vh-16rem)] overflow-y-auto pr-1">
+        <TocList entries={entries} activeId={activeId} />
+      </div>
     </nav>
   )
 }

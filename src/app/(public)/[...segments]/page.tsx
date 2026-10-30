@@ -5,11 +5,13 @@ import { MetaLine, TagLinks } from '@/components/article/MetaLine'
 import { PostList } from '@/components/article/PostList'
 import { CollapsibleTableOfContents, TableOfContents } from '@/components/article/TableOfContents'
 import { ViewCounter } from '@/components/article/ViewCounter'
+import { PublishCalendar } from '@/components/layout/PublishCalendar'
 import { getDictionary, getLocale } from '@/i18n'
+import { dayKey, monthRange } from '@/lib/calendar'
 import { renderMarkdown } from '@/server/markdown/render'
 import { resolvePath } from '@/server/routes/resolve'
 import { getCategoryById } from '@/server/services/categories'
-import { getPostById, listPostTags, listPosts, PUBLIC_ACTOR } from '@/server/services/posts'
+import { countPostsByDay, getPostById, listPostTags, listPosts, PUBLIC_ACTOR } from '@/server/services/posts'
 import { getViewCount } from '@/server/services/views'
 
 export const dynamic = 'force-dynamic'
@@ -94,9 +96,16 @@ export default async function CatchAllPage({ params, searchParams }: Props) {
   const post = await getPostById(resolved.postId)
   if (!post) notFound()
 
-  const { html, toc } = await renderMarkdown(post.bodyMd)
-  const views = await getViewCount(post.id)
-  const tags = await listPostTags(post.id)
+  const now = new Date()
+  const calMonth = { year: now.getFullYear(), month: now.getMonth() + 1 }
+  const [calFrom, calTo] = monthRange(calMonth.year, calMonth.month)
+  const [{ html, toc }, views, tags, counts] = await Promise.all([
+    renderMarkdown(post.bodyMd),
+    getViewCount(post.id),
+    listPostTags(post.id),
+    countPostsByDay(calFrom, calTo),
+  ])
+  const todayKey = dayKey(now)
 
   return (
     <article className="mx-auto w-full max-w-[1180px]">
@@ -136,8 +145,26 @@ export default async function CatchAllPage({ params, searchParams }: Props) {
         </div>
 
         <aside className="hidden xl:block">
-          <div className="sticky top-24">
+          {/* 右栏占满视口：目录在上（过高时内部滚动），日历钉在右下角。 */}
+          <div className="sticky top-24 flex h-[calc(100vh-8rem)] flex-col">
             <TableOfContents entries={toc} label={dict.postTableOfContents} />
+            <div className="mt-auto">
+              <PublishCalendar
+                year={calMonth.year}
+                month={calMonth.month}
+                counts={counts}
+                selectedDay={null}
+                labels={{
+                  title: dict.calendarTitle,
+                  prevMonth: dict.calendarPrevMonth,
+                  nextMonth: dict.calendarNextMonth,
+                  today: dict.calendarToday,
+                  weekdays: Array.from(dict.calendarWeekdays),
+                }}
+                dayHref={(day) => `/?day=${day}`}
+                monthHref={(year, month) => `/?month=${year}-${String(month).padStart(2, '0')}`}
+              />
+            </div>
           </div>
         </aside>
       </div>
