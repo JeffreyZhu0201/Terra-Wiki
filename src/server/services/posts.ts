@@ -10,7 +10,7 @@ import {
   type SQL,
 } from 'drizzle-orm'
 import { db } from '../db/client'
-import { categories, postRevisions, postTags, posts, tags } from '../db/schema'
+import { categories, postRevisions, postTags, posts, tags, users } from '../db/schema'
 import { DomainError } from '../errors'
 import { isUuid } from '../uuid'
 import { ensureUniqueSlug, isValidSlug, slugify } from '../slug'
@@ -36,6 +36,8 @@ export type Post = {
   bodyMd: string
   status: PostStatus
   authorId: string
+  /** 作者名（human 与 token 发布都落到成员头上），文章页展示用。 */
+  authorName?: string
   featured: boolean
   coverImage: string | null
   publishedAt: Date | null
@@ -375,8 +377,14 @@ export async function archivePost(input: { actor: Actor; id: string }): Promise<
 export async function getPostById(id: string): Promise<Post | null> {
   // id 不是 UUID 时直接当作"不存在"——否则数据库会抛原始错误。
   if (!isUuid(id)) return null
-  const row = (await db.select().from(posts).where(eq(posts.id, id)))[0]
-  return row ? toPost(row) : null
+  const row = (
+    await db
+      .select({ post: posts, authorName: users.name })
+      .from(posts)
+      .innerJoin(users, eq(posts.authorId, users.id))
+      .where(eq(posts.id, id))
+  )[0]
+  return row ? { ...toPost(row.post), authorName: row.authorName } : null
 }
 
 export async function getPostBySlug(categoryPath: string, slug: string): Promise<Post | null> {

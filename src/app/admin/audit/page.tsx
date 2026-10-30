@@ -3,7 +3,7 @@ import { Flash } from '@/components/admin/Flash'
 import { getDictionary, getLocale } from '@/i18n'
 import { listAuditLogs } from '@/server/audit'
 import { requireUser } from '@/server/auth/session'
-import { listMcpTokens } from '@/server/services/tokens'
+import { listMemberTokens } from '@/server/services/tokens'
 import { listUsers } from '@/server/services/users'
 
 export const dynamic = 'force-dynamic'
@@ -26,12 +26,12 @@ export default async function AdminAuditPage({
 
   const [entries, tokens, members] = await Promise.all([
     listAuditLogs({ ...(action ? { action } : {}), limit: 200 }),
-    listMcpTokens(),
+    listMemberTokens(),
     listUsers(),
   ])
 
   // actor 存的是 id，但人要看的是名字——Token 尤其需要看到名字。
-  const tokenNames = new Map(tokens.map((token) => [token.id, token.name]))
+  const tokenNames = new Map([...tokens.values()].map((token) => [token.id, token.name]))
   const memberNames = new Map(members.map((member) => [member.id, member.name]))
   const actorLabel = (actorType: 'user' | 'token', actorId: string): string => {
     if (actorType === 'token') return tokenNames.get(actorId) ?? actorId.slice(0, 8)

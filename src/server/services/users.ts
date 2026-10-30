@@ -3,6 +3,7 @@ import { db } from '../db/client'
 import { sessions, users } from '../db/schema'
 import { hashPassword } from '../auth/password'
 import { DomainError } from '../errors'
+import { ensureMemberToken } from './tokens'
 
 export type UserSummary = {
   id: string
@@ -46,6 +47,9 @@ export async function createUser(input: {
       .returning()
   )[0]
   if (!row) throw new DomainError('conflict', '成员创建失败')
+
+  // 成员自带一枚 MCP Token，创建即签发。
+  await ensureMemberToken({ userId: row.id, name: row.name })
 
   return {
     id: row.id,

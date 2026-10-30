@@ -15,7 +15,6 @@ import {
 import { mergeTags, renameTag } from '@/server/services/tags'
 import { deleteMedia, uploadMedia } from '@/server/services/media'
 import { createUser, setUserDisabled, setUserRole } from '@/server/services/users'
-import { createMcpToken, revokeMcpToken } from '@/server/services/tokens'
 import { updateSettings } from '@/server/services/settings'
 import type { SessionUser } from '@/server/auth/session'
 
@@ -312,49 +311,6 @@ export async function setUserDisabledAction(formData: FormData): Promise<void> {
       })
     },
     disabled ? '成员已停用' : '成员已启用',
-  )
-}
-
-/** 签发 Token。明文只在这次响应里返回。 */
-export async function createTokenAction(formData: FormData): Promise<ActionResult> {
-  const admin = await requireAdmin()
-  const canPublish = formData.get('canPublish') === 'on'
-
-  try {
-    const created = await createMcpToken({
-      actor: { kind: 'user', id: admin.id, role: admin.role },
-      name: str(formData, 'name'),
-      canPublish,
-    })
-    await recordAudit({
-      actor: { kind: 'user', id: admin.id, role: admin.role },
-      action: 'token.create',
-      target: { type: 'token', id: created.id },
-      meta: { canPublish },
-    })
-    revalidatePath('/admin/tokens')
-    return { ok: true, token: created.token, message: 'Token 已签发' }
-  } catch (error) {
-    if (error instanceof DomainError) return { ok: false, message: error.message }
-    throw error
-  }
-}
-
-export async function revokeTokenAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin()
-  const id = str(formData, 'id')
-
-  await run(
-    '/admin/tokens',
-    async () => {
-      await revokeMcpToken(id)
-      await recordAudit({
-        actor: { kind: 'user', id: admin.id, role: admin.role },
-        action: 'token.revoke',
-        target: { type: 'token', id },
-      })
-    },
-    'Token 已吊销',
   )
 }
 

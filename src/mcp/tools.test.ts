@@ -4,8 +4,9 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createTestUser, resetDb } from '../../tests/db'
 import { db } from '../server/db/client'
 import { auditLogs, mcpTokens } from '../server/db/schema'
+import { eq } from 'drizzle-orm'
 import { createCategory } from '../server/services/categories'
-import { createMcpToken, revokeMcpToken } from '../server/services/tokens'
+import { ensureMemberToken, revokeMcpToken } from '../server/services/tokens'
 import { createMcpServer } from './tools'
 import type { McpContext } from './context'
 
@@ -37,11 +38,8 @@ async function tokenContext(input: {
     role: input.role ?? 'author',
     canPublish: input.canPublish,
   }
-  const created = await createMcpToken({
-    actor: { kind: 'user', id: user.id, role: user.role },
-    name: 'test',
-    canPublish: input.canPublish,
-  })
+  const created = await ensureMemberToken({ userId: user.id, name: 'test' })
+  await db.update(mcpTokens).set({ canPublish: input.canPublish }).where(eq(mcpTokens.id, created.id))
   return {
     ctx: { actor, tokenId: created.id },
     token: created.token,
@@ -55,11 +53,7 @@ describe('mcp tools', () => {
 
   it('rejects a revoked token', async () => {
     const user = (await db.query.users.findFirst())!
-    const { token } = await createMcpToken({
-      actor: { kind: 'user', id: user.id, role: user.role },
-      name: 'x',
-      canPublish: true,
-    })
+    const { token } = await ensureMemberToken({ userId: user.id, name: 'x' })
     const { verifyMcpToken } = await import('../server/services/tokens')
     expect(await verifyMcpToken(token)).not.toBeNull()
 

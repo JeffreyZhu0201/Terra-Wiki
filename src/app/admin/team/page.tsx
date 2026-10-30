@@ -5,9 +5,11 @@ import {
   setUserRoleAction,
 } from '@/app/admin/actions'
 import { Flash } from '@/components/admin/Flash'
+import { MemberTokenCell } from '@/components/admin/MemberTokenCell'
 import { getDictionary, getLocale } from '@/i18n'
 import { requireUser } from '@/server/auth/session'
 import { listUsers } from '@/server/services/users'
+import { listMemberTokens } from '@/server/services/tokens'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +28,7 @@ export default async function AdminTeamPage({
   const dict = getDictionary(await getLocale())
   const query = await searchParams
   const members = await listUsers()
+  const tokenByAuthor = await listMemberTokens()
 
   return (
     <div className="space-y-6">
@@ -41,6 +44,7 @@ export default async function AdminTeamPage({
             <th className="py-2 pr-4 font-normal">{dict.adminName}</th>
             <th className="py-2 pr-4 font-normal">{dict.adminEmail}</th>
             <th className="py-2 pr-4 font-normal">{dict.adminRole}</th>
+            <th className="py-2 pr-4 font-normal">{dict.adminTokens}</th>
             <th className="py-2 font-normal">{dict.adminColumnActions}</th>
           </tr>
         </thead>
@@ -74,6 +78,23 @@ export default async function AdminTeamPage({
                     {dict.adminSave}
                   </button>
                 </form>
+              </td>
+              <td className="py-2.5 pr-4">
+                {(() => {
+                  const token = tokenByAuthor.get(member.id)
+                  return token && !token.revokedAt ? (
+                    <MemberTokenCell
+                      token={token.token}
+                      labels={{
+                        copyToken: dict.adminCopyToken,
+                        copyConfig: dict.adminCopyMcpConfig,
+                        copied: dict.adminCopied,
+                      }}
+                    />
+                  ) : (
+                    <span className="font-mono text-xs text-ink-muted">—</span>
+                  )
+                })()}
               </td>
               <td className="py-2.5">
                 <form action={setUserDisabledAction}>
