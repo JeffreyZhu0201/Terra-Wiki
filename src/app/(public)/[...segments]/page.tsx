@@ -107,6 +107,7 @@ export default async function CatchAllPage({ params, searchParams }: Props) {
             post={post}
             views={views}
             publishedLabel={dict.postPublished}
+            authorLabel={dict.postAuthor}
             readingLabel={dict.postReadingTime}
             viewsLabel={dict.postViews}
           />

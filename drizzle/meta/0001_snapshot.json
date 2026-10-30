@@ -200,12 +200,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "token_hash": {
-          "name": "token_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "author_id": {
           "name": "author_id",
           "type": "uuid",
@@ -237,6 +231,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
         }
       },
       "indexes": {},
@@ -257,11 +257,18 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "mcp_tokens_token_hash_unique": {
-          "name": "mcp_tokens_token_hash_unique",
+        "mcp_tokens_token_unique": {
+          "name": "mcp_tokens_token_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "token_hash"
+            "token"
+          ]
+        },
+        "mcp_tokens_author_id_unique": {
+          "name": "mcp_tokens_author_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "author_id"
           ]
         }
       },
