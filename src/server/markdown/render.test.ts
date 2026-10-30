@@ -44,14 +44,21 @@ describe('markdown', () => {
     expect(html).toContain('code-block')
   })
 
-  it('does not repeat the language label when the title equals it', async () => {
+  it('always shows the language label, even when the title equals it', async () => {
     const { html } = await renderMarkdown('```ts title="ts"\nconst a = 1\n```')
-    expect(html).not.toContain('code-pane-lang')
+    expect(html).toContain('code-pane-lang')
   })
 
-  it('shows the language label when the title differs', async () => {
+  it('shows the file name on the left and the language on the right', async () => {
     const { html } = await renderMarkdown('```ts title="src/app.ts"\nconst a = 1\n```')
     expect(html).toContain('code-pane-lang')
     expect(html).toContain('src/app.ts')
+  })
+
+  it('leaves the title empty when no file name is given', async () => {
+    const { html } = await renderMarkdown('```ts\nconst a = 1\n```')
+    // 语言标签仍固定在右侧，但左侧不再拿语言当标题占位。
+    expect(html).toContain('code-pane-lang')
+    expect(html).toContain('<span class="code-pane-title"></span>')
   })
 })

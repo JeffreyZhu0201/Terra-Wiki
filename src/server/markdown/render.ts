@@ -30,9 +30,9 @@ export async function renderMarkdown(md: string): Promise<{ html: string; toc: T
         code(_state: unknown, node: Code): Element {
           const lang = node.lang ?? ''
           const meta = node.meta ?? ''
-          const title = /title="([^"]*)"/.exec(meta)?.[1] ?? lang
-          // 标题与语言相同时，右上角不再重复标一次语言。
-          const showLang = lang !== '' && lang !== title
+          // 左侧只显示文件名（title="..."），没有就留空；
+          // 语言标签与复制按钮固定在右侧。
+          const title = /title="([^"]*)"/.exec(meta)?.[1] ?? ''
           const code = node.value.replace(/\n$/, '')
 
           const highlighted = highlightToHast(code, lang)
@@ -68,7 +68,7 @@ export async function renderMarkdown(md: string): Promise<{ html: string; toc: T
                     properties: { className: ['code-pane-title'] },
                     children: [{ type: 'text', value: title }],
                   },
-                  ...(showLang
+                  ...(lang
                     ? ([
                         {
                           type: 'element',
