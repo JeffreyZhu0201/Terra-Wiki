@@ -84,6 +84,7 @@ const zh = {
   adminConflict: '文章已被他人修改，请重新加载',
   adminReload: '重新加载',
   adminNewCategory: '新建分类',
+  adminNewTag: '新建标签',
   adminRename: '改名',
   adminMove: '移动',
   adminDelete: '删除',
