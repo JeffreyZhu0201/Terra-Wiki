@@ -105,6 +105,18 @@ export async function verifyMcpToken(token: string): Promise<VerifiedMcpToken | 
   }
 }
 
+/** 改 Token 的发布权限。默认 false——Agent 只能写草稿。 */
+export async function setTokenCanPublish(authorId: string, canPublish: boolean): Promise<void> {
+  const row = (
+    await db
+      .update(mcpTokens)
+      .set({ canPublish })
+      .where(eq(mcpTokens.authorId, authorId))
+      .returning()
+  )[0]
+  if (!row) throw new DomainError('not_found', 'Token 不存在', { authorId })
+}
+
 export async function touchMcpToken(id: string): Promise<void> {
   await db.update(mcpTokens).set({ lastUsedAt: new Date() }).where(eq(mcpTokens.id, id))
 }
