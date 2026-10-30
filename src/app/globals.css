@@ -217,16 +217,36 @@ body {
   line-height: 1.65;
 }
 
-/* Shiki 双主题：默认亮色，.dark 下切到暗色 */
+/*
+ * Shiki 双主题：默认亮色，.dark 下切到暗色。
+ * var() 的兜底值不能省——不支持的语言会退回纯文本 <pre class="code-block">，
+ * 那条路径没有 --shiki-* 变量，缺兜底就会解析成无效值，文字跟着失效。
+ */
 .code-pane-body .shiki,
 .code-pane-body .shiki span {
-  color: var(--shiki-light);
+  color: var(--shiki-light, var(--color-code-ink));
   background-color: transparent;
 }
 
 .dark .code-pane-body .shiki,
 .dark .code-pane-body .shiki span {
-  color: var(--shiki-dark);
+  color: var(--shiki-dark, var(--color-code-ink));
+}
+
+/*
+ * 无语言标注（或语言不支持）的代码块：没有 Shiki 高亮，
+ * 但外观要与代码窗格一致——同样是页面上唯一的深色物体。
+ */
+.prose pre.code-block {
+  margin: 1.5em 0;
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+  background: var(--color-code-bg);
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--color-code-ink);
 }
 
 @media (prefers-reduced-motion: reduce) {

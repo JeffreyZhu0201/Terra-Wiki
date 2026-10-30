@@ -31,6 +31,8 @@ export async function renderMarkdown(md: string): Promise<{ html: string; toc: T
           const lang = node.lang ?? ''
           const meta = node.meta ?? ''
           const title = /title="([^"]*)"/.exec(meta)?.[1] ?? lang
+          // 标题与语言相同时，右上角不再重复标一次语言。
+          const showLang = lang !== '' && lang !== title
           const code = node.value.replace(/\n$/, '')
 
           const highlighted = highlightToHast(code, lang)
@@ -66,12 +68,16 @@ export async function renderMarkdown(md: string): Promise<{ html: string; toc: T
                     properties: { className: ['code-pane-title'] },
                     children: [{ type: 'text', value: title }],
                   },
-                  {
-                    type: 'element',
-                    tagName: 'span',
-                    properties: { className: ['code-pane-lang'] },
-                    children: [{ type: 'text', value: lang }],
-                  },
+                  ...(showLang
+                    ? ([
+                        {
+                          type: 'element',
+                          tagName: 'span',
+                          properties: { className: ['code-pane-lang'] },
+                          children: [{ type: 'text', value: lang }],
+                        },
+                      ] as Element[])
+                    : []),
                   {
                     type: 'element',
                     tagName: 'button',
