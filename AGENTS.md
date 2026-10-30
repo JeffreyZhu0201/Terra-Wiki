@@ -16,13 +16,38 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d   # 开发库 :5432 + 测试库 :55432
-npm run dev                                      # http://localhost:3000
+pnpm dev                                         # http://localhost:3000
 ```
 
 - 配置全部在 `.env`（模板见 `.env.example`），compose 与 next dev 都自动读取。
 - 正式环境是另一条链路：`docker compose build app && docker compose up -d app`。镜像在构建时打入源码，**改完代码必须重建镜像**才会在 :3000 生效。
-- 完成的定义：`npm run typecheck` 与 `npm test` 全过。测试连 `TEST_DATABASE_URL`（55432 测试库）。
+- 完成的定义：`pnpm typecheck` 与 `pnpm test` 全过。测试连 `TEST_DATABASE_URL`（55432 测试库）。包管理器固定 pnpm（`packageManager` 字段已锁版本），不要用 npm / yarn。
 - 已知坑：本机装了 OrbStack，它会把容器端口自动转发到 localhost。若迁移「成功但没建表」，先确认 `localhost:5432` 实际落在哪个容器（`docker exec <db容器> psql -U terra -d terra -c '\dt'`）。
+
+## 分支模型与工作流
+
+gitflow 三段式。完整操作手册见 `docs/branching.md`，本节是同一套规则的浓缩。
+
+| 分支 | 作用 | 谁往里合 |
+| --- | --- | --- |
+| `main` | 生产分支，每个提交都对应线上可运行的状态 | 只接受 `release/*` 与 `hotfix/*` |
+| `develop` | 集成分支，日常合并的目标 | `feature/*` `bugfix/*` `chore/*` `release/*` `hotfix/*` |
+| `feature/<name>` | 新功能、新页面、新 MCP 工具 | 从 `develop` 切出，合回 `develop` |
+| `bugfix/<name>` | 缺陷修复，流程同 feature | 从 `develop` 切出，合回 `develop` |
+| `chore/<name>` | 依赖升级、构建配置、文档 | 从 `develop` 切出，合回 `develop` |
+| `release/<version>` | 发布准备，只放发布前的修补 | 合回 `develop`（回灌）与 `main`（发布） |
+| `hotfix/<version>` | 线上紧急修复，从 `main` 切出 | 合回 `main`（发布）与 `develop`（回灌） |
+
+两条铁律：**功能分支一律从 `develop` 切出、合回 `develop`；只有 `release/*` 与 `hotfix/*` 能进 `main`。**
+
+- 命名：`<type>/<short-kebab-description>`，type ∈ {feature, bugfix, chore, release, hotfix}，描述小写短横线、不用中文。release/hotfix 后半段是版本号，不带 `v`：`release/0.2.0`。历史上的 `feat/terra-wiki` 已合入 main，保留不改名，新分支一律用上面的前缀。
+- 日常流程：`git switch develop && git switch -c feature/<name>` → 开发 → 自测 → 提交 → PR 到 `develop` → CI 绿 + review 通过 → 合并 → 删分支。
+- 提交规范：Conventional Commits `<type>(<scope>): <subject>`，scope 取模块名（`auth` `posts` `categories` `tags` `media` `mcp` `admin` `public` `services` `db` `docker` `ui` `markdown` `uploads` `users`），**一次提交只做一件事**，破坏性变更在 body 写 `BREAKING CHANGE:`。
+- PR 清单：关联 issue、typecheck + test 全过（即上面的「完成的定义」）、有迁移则附上 `drizzle/` 下新增的 SQL 文件、无破坏性变更或写明回滚方式。模板见 `.github/pull_request_template.md`。
+- 合并规则：`main` 与 `develop` 只接受 `--no-ff` 合并，保留发布边界节点；不 force push，不直接 push 到 `main` / `develop`。
+- 发布与热修：版本号语义化（`MAJOR.MINOR.PATCH`，与 `package.json` 的 `version` 一致），发布分支合回 develop 与 main 后在 main 上打 `v<version>` tag；热修从 `main` 切出，修完同时合回 `main` 与 `develop`。步骤细节见 `docs/branching.md`。
+- 保护规则：main 与 develop 都要求走 PR、CI 必须通过、禁止 force push、合并后删源分支。规则本身在 GitHub 设置里配，落地命令见 `docs/branching.md` 末节。
+- CI：`.github/workflows/ci.yml` 在 push 到 main/develop 与 PR 时跑 `pnpm typecheck` + `pnpm test`（Postgres 17 起在 55432），与「完成的定义」一致；仓库没有 linter，别在 CI 里加 lint 步骤。
 
 ## 架构分层（接口规范）
 
