@@ -45,6 +45,8 @@ Agent 在自己的会话里建分类、写文章、发布，不用打开浏览�
 （库里只存 sha256）。新签发的 Token 默认没有发布权——`publish_post` 会被拒绝，
 需要人工在后台点发布。要让 Agent 直接发布，签发时勾上「允许直接发布」。
 
+Token 归属的成员被停用后，它即刻失效（与网页端会话同一口径）。
+
 ### 2. 配置客户端
 
 Agent 只说 stdio 协议时用仓库里的桥接脚本：
@@ -64,8 +66,10 @@ Agent 只说 stdio 协议时用仓库里的桥接脚本：
 }
 ```
 
-客户端支持 HTTP 的话直接连 `http://localhost:3000/api/mcp`，带上
-`Authorization: Bearer <token>` 即可，不需要桥接脚本。
+客户端支持 HTTP 的话直接连 `http://localhost:3000/api/mcp`，不需要桥接脚本。
+请求头要带 `Authorization: Bearer <token>`，以及
+`Accept: application/json, text/event-stream`——**两个 Accept 值都要带**，
+缺一个 MCP transport 会回 406。
 
 ### 3. 工具集（22 个）
 
@@ -84,8 +88,14 @@ Agent 只说 stdio 协议时用仓库里的桥接脚本：
   Agent 给自己签发 Token 属于权限提升。
 - **权限继承 Token 归属作者**：作者角色的 Token 改不了别人的文章，也建不了分类；
   管理员的 Token 可以。
+- **`list_revisions` 只有作者本人与管理员可见**，与后台文章编辑页同一口径；
+  看不到时报「文章不存在」而不是「没权限」。
 - `upload_image` 收 base64 编码的图片内容，返回可直接插入 Markdown 的地址。
+  图片上限 10 MB。
 - 中文标签、文章标题会转成拼音 slug（`冒烟测试` → `mao-yan-ce-shi`）。
+
+以上约定在 MCP 的 `instructions` 里也发了一份——Agent 连上后就能读到，
+不必靠试错。
 
 ## 安全说明
 
@@ -93,6 +103,7 @@ Agent 只说 stdio 协议时用仓库里的桥接脚本：
 - 上传只接受 png / jpeg / webp / gif，按**文件头**判断，扩展名和 MIME 都能伪造，
   文件头不会。SVG 不收。
 - Token 只存 sha256，吊销后即刻失效（不是等缓存过期）。
+- 停用成员时，他的 MCP Token 一并失效——Token 是独立于会话的一条通道。
 - 会话 cookie 是 HttpOnly + SameSite=Lax，30 天过期。
 - 成员可以被停用：停用后立即无法登录，已有会话同时失效。
 

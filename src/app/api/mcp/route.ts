@@ -44,6 +44,11 @@ export async function POST(request: Request): Promise<Response> {
   const transport = new WebStandardStreamableHTTPServerTransport({
     // 不给 sessionIdGenerator 就是无状态模式：每个请求独立，不做会话校验。
     enableJsonResponse: true,
+    // transport 默认只收 4 MiB，而 upload_image 传的是 base64（10 MB 图片约
+    // 13.3 MB）——上限比业务限制还紧，超限时 Agent 拿到的是 transport 的
+    // 413 英文而不是我们的 DomainError。放宽到能装下 10 MB 的 base64，
+    // 让 uploadMedia 的 10 MB 成为唯一权威上限。
+    maxRequestBodySize: 16 * 1024 * 1024,
   })
 
   await server.connect(transport)

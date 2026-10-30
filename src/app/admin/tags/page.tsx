@@ -1,4 +1,4 @@
-import { mergeTagsAction, renameTagAction } from '@/app/admin/actions'
+import { createTagAction, deleteTagAction, mergeTagsAction, renameTagAction } from '@/app/admin/actions'
 import { Flash } from '@/components/admin/Flash'
 import { getDictionary, getLocale } from '@/i18n'
 import { requireUser } from '@/server/auth/session'
@@ -62,11 +62,36 @@ export default async function AdminTagsPage({
                     </button>
                   </form>
                 </td>
+                <td className="py-2.5">
+                  <form action={deleteTagAction}>
+                    <input type="hidden" name="id" value={tag.id} />
+                    <button
+                      type="submit"
+                      className="font-mono text-xs text-danger underline underline-offset-4"
+                    >
+                      {dict.adminDelete}
+                    </button>
+                  </form>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
+
+      <form action={createTagAction} className="flex flex-wrap items-end gap-3 text-sm">
+        <label className="block">
+          <span className="font-mono text-xs text-ink-muted">{dict.adminDisplayName}</span>
+          <input
+            name="name"
+            required
+            className="mt-1 block border border-rule bg-surface px-2 py-1.5 text-ink"
+          />
+        </label>
+        <button type="submit" className="bg-accent px-3 py-2 text-paper hover:bg-accent-hover">
+          {dict.adminNewTag}
+        </button>
+      </form>
 
       {tags.length > 1 ? (
         <form action={mergeTagsAction} className="flex flex-wrap items-end gap-3 text-sm">

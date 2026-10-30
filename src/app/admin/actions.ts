@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireUser } from '@/server/auth/session'
 import { destroySession } from '@/server/auth/session'
-import { DomainError } from '@/server/errors'
+import { DomainError, ADMIN_ONLY_MESSAGE } from '@/server/errors'
 import { recordAudit } from '@/server/audit'
 import {
   createCategory,
@@ -12,10 +12,9 @@ import {
   moveCategory,
   renameCategory,
 } from '@/server/services/categories'
-import { mergeTags, renameTag } from '@/server/services/tags'
+import { createTag, deleteTag, mergeTags, renameTag } from '@/server/services/tags'
 import { deleteMedia, uploadMedia } from '@/server/services/media'
 import { createUser, setUserDisabled, setUserRole } from '@/server/services/users'
-import { createMcpToken, revokeMcpToken } from '@/server/services/tokens'
 import { updateSettings } from '@/server/services/settings'
 import type { SessionUser } from '@/server/auth/session'
 
@@ -51,7 +50,8 @@ function back(path: string, result: ActionResult): never {
 async function requireAdmin(): Promise<SessionUser> {
   const user = await requireUser()
   if (user.role !== 'admin') {
-    throw new DomainError('forbidden', '仅管理员可执行此操作')
+    // 文案与 MCP 侧共用一份——同一个错误，两个通道显示同一段话。
+    throw new DomainError('forbidden', ADMIN_ONLY_MESSAGE)
   }
   return user
 }
@@ -161,6 +161,41 @@ export async function deleteCategoryAction(formData: FormData): Promise<void> {
       })
     },
     '分类已删除',
+  )
+}
+
+export async function createTagAction(formData: FormData): Promise<void> {
+  const user = await requireUser()
+
+  await run(
+    '/admin/tags',
+    async () => {
+      const tag = await createTag(str(formData, 'name'))
+      await recordAudit({
+        actor: { kind: 'user', id: user.id, role: user.role },
+        action: 'tag.create',
+        target: { type: 'tag', id: tag.id },
+      })
+    },
+    '标签已创建',
+  )
+}
+
+export async function deleteTagAction(formData: FormData): Promise<void> {
+  const user = await requireUser()
+  const id = str(formData, 'id')
+
+  await run(
+    '/admin/tags',
+    async () => {
+      await deleteTag(id)
+      await recordAudit({
+        actor: { kind: 'user', id: user.id, role: user.role },
+        action: 'tag.delete',
+        target: { type: 'tag', id },
+      })
+    },
+    '标签已删除',
   )
 }
 
@@ -311,49 +346,6 @@ export async function setUserDisabledAction(formData: FormData): Promise<void> {
       })
     },
     disabled ? '成员已停用' : '成员已启用',
-  )
-}
-
-/** 签发 Token。明文只在这次响应里返回。 */
-export async function createTokenAction(formData: FormData): Promise<ActionResult> {
-  const admin = await requireAdmin()
-  const canPublish = formData.get('canPublish') === 'on'
-
-  try {
-    const created = await createMcpToken({
-      actor: { kind: 'user', id: admin.id, role: admin.role },
-      name: str(formData, 'name'),
-      canPublish,
-    })
-    await recordAudit({
-      actor: { kind: 'user', id: admin.id, role: admin.role },
-      action: 'token.create',
-      target: { type: 'token', id: created.id },
-      meta: { canPublish },
-    })
-    revalidatePath('/admin/tokens')
-    return { ok: true, token: created.token, message: 'Token 已签发' }
-  } catch (error) {
-    if (error instanceof DomainError) return { ok: false, message: error.message }
-    throw error
-  }
-}
-
-export async function revokeTokenAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin()
-  const id = str(formData, 'id')
-
-  await run(
-    '/admin/tokens',
-    async () => {
-      await revokeMcpToken(id)
-      await recordAudit({
-        actor: { kind: 'user', id: admin.id, role: admin.role },
-        action: 'token.revoke',
-        target: { type: 'token', id },
-      })
-    },
-    'Token 已吊销',
   )
 }
 

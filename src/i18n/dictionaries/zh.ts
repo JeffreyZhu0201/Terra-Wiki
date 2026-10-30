@@ -1,3 +1,5 @@
+import { ADMIN_ONLY_MESSAGE } from '@/server/errors'
+
 const zh = {
   siteName: 'Terra-Wiki',
   navSearch: '搜索',
@@ -12,6 +14,7 @@ const zh = {
   categoryEmpty: '这个分类还没有文章',
   categoryPosts: '篇文章',
   postPublished: '发布于',
+  postAuthor: '作者',
   postUpdated: '更新于',
   postReadingTime: '阅读',
   postViews: '次浏览',
@@ -41,6 +44,9 @@ const zh = {
   adminMedia: '媒体',
   adminTeam: '成员',
   adminTokens: 'Token',
+  adminCopyToken: '复制 Token',
+  adminCopyMcpConfig: '复制 MCP 配置',
+  adminCopied: '已复制',
   adminAudit: '审计',
   adminSettings: '设置',
   adminDrafts: '草稿箱',
@@ -78,6 +84,7 @@ const zh = {
   adminConflict: '文章已被他人修改，请重新加载',
   adminReload: '重新加载',
   adminNewCategory: '新建分类',
+  adminNewTag: '新建标签',
   adminRename: '改名',
   adminMove: '移动',
   adminDelete: '删除',
@@ -113,7 +120,8 @@ const zh = {
   adminSettingsRssTitle: 'RSS 标题',
   adminLogout: '退出登录',
   adminBackToSite: '回到站点',
-  adminOnlyAdmin: '仅管理员可执行此操作',
+  // 与 MCP 侧共用一份文案——同一个错误，两个通道显示同一段话。
+  adminOnlyAdmin: ADMIN_ONLY_MESSAGE,
   adminDeleteConfirm: '确定删除？',
   adminNoItems: '没有内容',
   adminWordCount: '字数',

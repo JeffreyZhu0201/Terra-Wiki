@@ -12,3 +12,12 @@ export class DomainError extends Error {
     this.name = 'DomainError'
   }
 }
+
+/**
+ * 「仅管理员可执行」的唯一一份文案。
+ *
+ * 后台界面与 MCP 通道都拿它填 DomainError.message——同一个错误，
+ * 两边显示同一段话。界面侧的翻译在 src/i18n/dictionaries 里
+ * （adminOnlyAdmin），但错误的本体只在这里定义一次。
+ */
+export const ADMIN_ONLY_MESSAGE = '仅管理员可执行此操作'

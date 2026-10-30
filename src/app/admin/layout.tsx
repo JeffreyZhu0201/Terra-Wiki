@@ -25,7 +25,6 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     ...(user.role === 'admin'
       ? [
           { href: '/admin/team', label: dict.adminTeam },
-          { href: '/admin/tokens', label: dict.adminTokens },
           { href: '/admin/audit', label: dict.adminAudit },
           { href: '/admin/settings', label: dict.adminSettings },
         ]

@@ -4,8 +4,9 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createTestUser, resetDb } from '../../tests/db'
 import { db } from '../server/db/client'
 import { auditLogs, mcpTokens } from '../server/db/schema'
+import { eq } from 'drizzle-orm'
 import { createCategory } from '../server/services/categories'
-import { createMcpToken, revokeMcpToken } from '../server/services/tokens'
+import { ensureMemberToken, revokeMcpToken } from '../server/services/tokens'
 import { createMcpServer } from './tools'
 import type { McpContext } from './context'
 
@@ -37,11 +38,8 @@ async function tokenContext(input: {
     role: input.role ?? 'author',
     canPublish: input.canPublish,
   }
-  const created = await createMcpToken({
-    actor: { kind: 'user', id: user.id, role: user.role },
-    name: 'test',
-    canPublish: input.canPublish,
-  })
+  const created = await ensureMemberToken({ userId: user.id, name: 'test' })
+  await db.update(mcpTokens).set({ canPublish: input.canPublish }).where(eq(mcpTokens.id, created.id))
   return {
     ctx: { actor, tokenId: created.id },
     token: created.token,
@@ -55,11 +53,7 @@ describe('mcp tools', () => {
 
   it('rejects a revoked token', async () => {
     const user = (await db.query.users.findFirst())!
-    const { token } = await createMcpToken({
-      actor: { kind: 'user', id: user.id, role: user.role },
-      name: 'x',
-      canPublish: true,
-    })
+    const { token } = await ensureMemberToken({ userId: user.id, name: 'x' })
     const { verifyMcpToken } = await import('../server/services/tokens')
     expect(await verifyMcpToken(token)).not.toBeNull()
 
@@ -70,6 +64,79 @@ describe('mcp tools', () => {
   it('rejects an unknown token', async () => {
     const { verifyMcpToken } = await import('../server/services/tokens')
     expect(await verifyMcpToken('not-a-real-token')).toBeNull()
+  })
+
+  it('refuses to overwrite a post that changed under the agent', async () => {
+    const category = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const { ctx } = await tokenContext({ canPublish: false })
+    const client = await connect(ctx)
+
+    const created = await client.callTool({
+      name: 'create_post',
+      arguments: { categoryId: category.id, title: 'T', bodyMd: 'v1' },
+    })
+    const payload = JSON.parse(
+      (created.content as { type: 'text'; text: string }[])[0]!.text,
+    ) as { id: string; updatedAt: string }
+
+    // 别人在 Agent 读完之后改了文章
+    const { updatePost } = await import('../server/services/posts')
+    await updatePost({ actor: ctx.actor, id: payload.id, bodyMd: 'v2' })
+
+    const result = await client.callTool({
+      name: 'update_post',
+      arguments: { postId: payload.id, bodyMd: 'v3', expectedUpdatedAt: payload.updatedAt },
+    })
+    expect(result.isError).toBe(true)
+    const text = (result.content as { type: 'text'; text: string }[])[0]!.text
+    expect(text).toContain('他人修改')
+
+    // 用当前的时间戳就能正常写入
+    const { getPostById } = await import('../server/services/posts')
+    const current = await getPostById(payload.id)
+    const ok = await client.callTool({
+      name: 'update_post',
+      arguments: {
+        postId: payload.id,
+        bodyMd: 'v4',
+        expectedUpdatedAt: current!.updatedAt.toISOString(),
+      },
+    })
+    expect(ok.isError).toBeFalsy()
+  })
+
+  it('rejects an invalid expectedUpdatedAt instead of skipping the check', async () => {
+    const category = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const { ctx } = await tokenContext({ canPublish: false })
+    const client = await connect(ctx)
+
+    const created = await client.callTool({
+      name: 'create_post',
+      arguments: { categoryId: category.id, title: 'T', bodyMd: 'v1' },
+    })
+    const postId = JSON.parse(
+      (created.content as { type: 'text'; text: string }[])[0]!.text,
+    ).id as string
+
+    const result = await client.callTool({
+      name: 'update_post',
+      arguments: { postId, bodyMd: 'v2', expectedUpdatedAt: 'not-a-date' },
+    })
+    expect(result.isError).toBe(true)
+    const text = (result.content as { type: 'text'; text: string }[])[0]!.text
+    expect(text).toContain('不是合法的时间')
+  })
+
+  it('tells the agent the write contract in the server instructions', async () => {
+    const { ctx } = await tokenContext({ canPublish: false })
+    const client = await connect(ctx)
+
+    const instructions = client.getInstructions()
+    expect(instructions).toBeTruthy()
+    // 关键约定必须写在 instructions 里——Agent 不读文档。
+    expect(instructions).toContain('叶子分类')
+    expect(instructions).toContain('can_publish')
+    expect(instructions).toContain('publish_post')
   })
 
   it('exposes the content tool set but no platform management tools', async () => {
@@ -246,6 +313,45 @@ describe('mcp tools', () => {
     const fetched = await client.callTool({ name: 'get_post', arguments: { postId } })
     expect(fetched.isError).toBe(true)
   })
+
+  it('does not show another author the revisions of their post', async () => {
+    const category = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const otherId = await createTestUser({ email: 'other@example.com' })
+
+    const { ctx } = await tokenContext({ canPublish: false })
+    const client = await connect(ctx)
+
+    // 用另一个作者的身份建一篇草稿，再改一次产生一个版本
+    const other = await createMcpServer({
+      actor: { kind: 'user', id: otherId, role: 'author' },
+      tokenId: 'other',
+    })
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
+    const otherClient = new Client({ name: 'other', version: '0.0.0' })
+    await Promise.all([other.connect(serverTransport), otherClient.connect(clientTransport)])
+    const created = await otherClient.callTool({
+      name: 'create_post',
+      arguments: { categoryId: category.id, title: '别人的文章', bodyMd: 'x' },
+    })
+    const postId = JSON.parse(
+      (created.content as { type: 'text'; text: string }[])[0]!.text,
+    ).id as string
+    await otherClient.callTool({
+      name: 'update_post',
+      arguments: { postId, bodyMd: 'y' },
+    })
+
+    const listed = await client.callTool({
+      name: 'list_revisions',
+      arguments: { postId },
+    })
+    expect(listed.isError).toBe(true)
+    const text = (listed.content as { type: 'text'; text: string }[])[0]!.text
+    // 报「不存在」而不是「没权限」——不该让人知道这篇草稿存在。
+    expect(text).toContain('文章不存在')
+    expect(text).not.toContain('别人的文章')
+  })
+
   it('creates a new tag on the fly', async () => {
     const category = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
     const { ctx } = await tokenContext({ canPublish: false })
@@ -317,7 +423,7 @@ describe('mcp tools', () => {
     await updatePost({ actor: ctx.actor, id: postId, bodyMd: 'v2' })
 
     const { listRevisions } = await import('../server/services/revisions')
-    const revisions = await listRevisions(postId)
+    const revisions = await listRevisions({ postId, actor: ctx.actor })
     const restored = await client.callTool({
       name: 'restore_revision',
       arguments: { postId, revisionId: revisions[0]!.id },

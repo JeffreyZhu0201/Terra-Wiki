@@ -11,13 +11,27 @@ function one(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatDate(date: Date, locale: 'zh' | 'en'): string {
+  return new Intl.DateTimeFormat(locale === 'zh' ? 'zh-CN' : 'en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
+}
+
 export default async function AdminMediaPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   await requireUser()
-  const dict = getDictionary(await getLocale())
+  const locale = await getLocale()
+  const dict = getDictionary(locale)
   const query = await searchParams
   const media = await listMedia()
 
@@ -42,14 +56,25 @@ export default async function AdminMediaPage({
       {media.length === 0 ? (
         <p className="text-sm text-ink-muted">{dict.adminNoItems}</p>
       ) : (
-        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <ul className="divide-y divide-rule border border-rule bg-surface">
           {media.map((item) => (
-            <li key={item.id} className="border border-rule bg-surface p-2">
+            <li key={item.id} className="flex items-center gap-4 p-3">
               {/* 图片来自本站上传目录，Next 图片优化对本地磁盘不适用。 */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={item.url} alt={item.filename} className="h-24 w-full object-cover" />
-              <p className="mt-1 truncate font-mono text-xs text-ink-muted">{item.filename}</p>
-              <form action={deleteMediaAction} className="mt-1">
+              <a href={item.url} target="_blank" rel="noreferrer">
+                <img
+                  src={item.url}
+                  alt={item.filename}
+                  className="h-16 w-16 shrink-0 border border-rule object-cover"
+                />
+              </a>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-mono text-sm text-ink">{item.filename}</p>
+                <p className="mt-0.5 font-mono text-xs text-ink-muted">
+                  {item.mime} · {formatBytes(item.bytes)} · {formatDate(item.createdAt, locale)}
+                </p>
+              </div>
+              <form action={deleteMediaAction}>
                 <input type="hidden" name="id" value={item.id} />
                 <button
                   type="submit"
