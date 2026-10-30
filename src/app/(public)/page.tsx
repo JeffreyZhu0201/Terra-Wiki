@@ -96,7 +96,12 @@ export default async function HomePage({ searchParams }: Props) {
         ) : null}
       </div>
 
-      <aside className="hidden self-center xl:block">
+      {/*
+        右栏用 fixed 钉在视口右下方，而不是 sticky：正文在 main 里滚，
+        栏若留在 main 的文档流里就只能跟着滚。grid 的第二列仍保留宽度占位，
+        所以正文列不会被日历压到。
+      */}
+      <aside className="fixed bottom-0 right-[max(1.25rem,calc((100vw-1440px)/2+1.25rem))] top-14 hidden w-64 flex-col justify-end pb-8 xl:flex">
         <PublishCalendar
           year={month.year}
           month={month.month}

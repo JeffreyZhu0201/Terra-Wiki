@@ -144,27 +144,28 @@ export default async function CatchAllPage({ params, searchParams }: Props) {
           </footer>
         </div>
 
-        <aside className="hidden xl:block">
-          {/* 右栏占满视口：目录在上（过高时内部滚动），日历钉在右下角。 */}
-          <div className="sticky top-24 flex h-[calc(100vh-8rem)] flex-col">
-            <TableOfContents entries={toc} label={dict.postTableOfContents} />
-            <div className="mt-auto">
-              <PublishCalendar
-                year={calMonth.year}
-                month={calMonth.month}
-                counts={counts}
-                selectedDay={null}
-                labels={{
-                  title: dict.calendarTitle,
-                  prevMonth: dict.calendarPrevMonth,
-                  nextMonth: dict.calendarNextMonth,
-                  today: dict.calendarToday,
-                  weekdays: Array.from(dict.calendarWeekdays),
-                }}
-                dayHref={(day) => `/?day=${day}`}
-                monthHref={(year, month) => `/?month=${year}-${String(month).padStart(2, '0')}`}
-              />
-            </div>
+        {/*
+          右栏 fixed 钉在视口右下：正文在 main 里滚，栏若留在文档流里就会跟着滚。
+          grid 的第二列保留宽度占位，正文列不会被日历压到。
+        */}
+        <aside className="fixed bottom-0 right-[max(1.25rem,calc((100vw-1440px)/2+1.25rem))] top-14 hidden w-[14rem] flex-col pb-8 xl:flex">
+          <TableOfContents entries={toc} label={dict.postTableOfContents} />
+          <div className="mt-auto">
+            <PublishCalendar
+              year={calMonth.year}
+              month={calMonth.month}
+              counts={counts}
+              selectedDay={null}
+              labels={{
+                title: dict.calendarTitle,
+                prevMonth: dict.calendarPrevMonth,
+                nextMonth: dict.calendarNextMonth,
+                today: dict.calendarToday,
+                weekdays: Array.from(dict.calendarWeekdays),
+              }}
+              dayHref={(day) => `/?day=${day}`}
+              monthHref={(year, month) => `/?month=${year}-${String(month).padStart(2, '0')}`}
+            />
           </div>
         </aside>
       </div>
