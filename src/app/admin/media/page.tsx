@@ -62,10 +62,12 @@ export default async function AdminMediaPage({
               {/* 图片来自本站上传目录，Next 图片优化对本地磁盘不适用。 */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <a href={item.url} target="_blank" rel="noreferrer">
+                {/* 长图（手机截图）用 cover 会裁掉中间，正好裁成一片空白——
+                    contain 让整张图缩进框里，能看出是什么图。 */}
                 <img
                   src={item.url}
                   alt={item.filename}
-                  className="h-16 w-16 shrink-0 border border-rule object-cover"
+                  className="h-16 w-16 shrink-0 border border-rule bg-paper object-contain"
                 />
               </a>
               <div className="min-w-0 flex-1">
