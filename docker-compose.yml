@@ -1,11 +1,16 @@
+# 正式环境：数据库 + 迁移 + 应用。开发/测试用的库在 docker-compose.dev.yml。
+# 所有可配置项都在同目录 .env（参考 .env.example），compose 会自动读取。
+
 services:
   db:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: terra
-      POSTGRES_PASSWORD: terra
-      POSTGRES_DB: terra
+      POSTGRES_USER: ${POSTGRES_USER:-terra}
+      # 注意：POSTGRES_PASSWORD 只在数据卷首次初始化时生效，
+      # 改密码需要同时改 .env 并重建 pgdata 卷。
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-terra}
+      POSTGRES_DB: ${POSTGRES_DB:-terra}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -21,7 +26,7 @@ services:
       target: migrate
     restart: "no"
     environment:
-      DATABASE_URL: postgres://terra:terra@db:5432/terra
+      DATABASE_URL: postgres://${POSTGRES_USER:-terra}:${POSTGRES_PASSWORD:-terra}@db:5432/${POSTGRES_DB:-terra}
     depends_on:
       db:
         condition: service_healthy
@@ -34,7 +39,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgres://terra:terra@db:5432/terra
+      DATABASE_URL: postgres://${POSTGRES_USER:-terra}:${POSTGRES_PASSWORD:-terra}@db:5432/${POSTGRES_DB:-terra}
       SITE_URL: ${SITE_URL:-http://localhost:3000}
       UPLOAD_DIR: /app/uploads
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?请在 .env 里设置 BOOTSTRAP_ADMIN_EMAIL}

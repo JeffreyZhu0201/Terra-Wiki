@@ -1,4 +1,4 @@
--- 演示数据：跑 `docker compose -f docker-compose.test.yml exec -T db-test psql -U terra -d terra_test -f /dev/stdin < scripts/seed.sql`
+-- 演示数据：跑 `docker compose -f docker-compose.dev.yml exec -T db-dev psql -U terra -d terra -f /dev/stdin < scripts/seed.sql`
 -- 幂等：重复执行不会重复插入。
 
 INSERT INTO users (id, email, password_hash, name, role)

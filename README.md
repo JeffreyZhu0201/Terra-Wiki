@@ -22,7 +22,7 @@ docker compose up -d
 
 ```bash
 pnpm install
-docker compose -f docker-compose.test.yml up -d   # 测试库，端口 55432
+docker compose -f docker-compose.dev.yml up -d   # 开发/测试库，5432 和 55432
 DATABASE_URL=postgres://terra:terra@localhost:55432/terra_test pnpm db:migrate
 pnpm dev                                          # http://localhost:3000
 ```
