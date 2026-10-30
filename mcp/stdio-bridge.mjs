@@ -6,7 +6,7 @@
 //
 // 配置：
 //   MCP_HTTP_URL  默认 http://localhost:3000/api/mcp
-//   MCP_TOKEN     必填，从 /admin/tokens 签发
+//   MCP_TOKEN     必填，从 /admin/team 复制该成员的 Token
 
 import { createInterface } from 'node:readline'
 
@@ -14,7 +14,7 @@ const url = process.env.MCP_HTTP_URL ?? 'http://localhost:3000/api/mcp'
 const token = process.env.MCP_TOKEN
 
 if (!token) {
-  process.stderr.write('缺少 MCP_TOKEN 环境变量——先到 /admin/tokens 签发一个 Token 再填进来。\n')
+  process.stderr.write('缺少 MCP_TOKEN 环境变量——先到 /admin/team 复制该成员的 Token 再填进来。\n')
   process.exit(1)
 }
 

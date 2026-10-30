@@ -17,7 +17,7 @@ export const MCP_INSTRUCTIONS = `Terra-Wiki 是面向程序员的技术文档站
 3. 发布需要 Token 有 can_publish 权限；没有时 publish_post 会报"这个 Token 没有发布权限"。这是给人留的确认环节，不要绕。
 4. 权限继承 Token 归属作者：作者角色的 Token 改不了别人的文章，也建不了分类（分类治理仅管理员可做）；管理员的 Token 可以。
 5. 标签不存在会自动创建，不必先查。中文标题会转成拼音 slug（"冒烟测试" → mao-yan-ce-shi）。服务端总是返回最终 slug，拼 URL 用它。
-6. 同一分类内 slug 唯一。改 slug 不会自动写 301 转发，谨慎使用。
+6. 同一分类内 slug 唯一。改分类的 slug 会给整棵子树写 301 转发；改文章的 slug 不会写 301，谨慎使用。
 7. update_post 的 tags 是最终集合；addTags / removeTags 做增删。传 expectedUpdatedAt 可做乐观锁——文章被别人改过时会报冲突而不是静默覆盖。
 8. 读工具的可见范围与人类后台一致：他人的草稿不可见，list_revisions 只有作者本人与管理员能看到。看不到时报"文章不存在"而不是"没权限"。
 9. 工具返回 JSON 文本。出错时 isError 为 true，message 说明原因，details 带上下文（如 availableCategories）。错误信息不要当成数据解析。
