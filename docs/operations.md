@@ -60,16 +60,23 @@ app 不会启动（`service_completed_successfully`），旧容器继续跑，�
 
 ## Token 轮换
 
-Token 明文只在签发时显示一次，库里存的是 sha256，所以轮换就是"签新的、吊旧的"：
+每个成员自带一枚 Token，明文存在 `mcp_tokens.token` 里，后台 `/admin/team`
+点「复制 Token」即可取到。库里没有单独的签发/吊销界面，轮换直接改库：
 
-1. `/admin/tokens` → 签发新 Token，复制明文。
-2. 更新 Agent 端的配置（`MCP_TOKEN`）。
-3. 确认 Agent 能正常调用（`tools/list` 有响应）。
-4. 回到 `/admin/tokens` → 吊销旧 Token。
+```sql
+-- 换成新的随机 Token（老 Token 立刻失效）
+UPDATE mcp_tokens SET token = encode(sha256((random()::text || clock_timestamp()::text)::bytea), 'hex')
+WHERE author_id = '<成员 id>';
+```
 
-先切新再吊旧，中间留一段两套 Token 都能用的窗口。
+改完把新值同步到 Agent 端配置（`MCP_TOKEN`）。因为库里是明文，
+换 Token 没有任何「只显示一次」的窗口——改库即刻生效。
 
-怀疑 Token 泄露时，直接吊销——吊销即刻生效，不等缓存过期。
+怀疑 Token 泄露时，同样直接改库作废；成员被停用也会让其 Token 立刻失效
+（Token 是独立于会话的一条通道）。
+
+> 早期版本用 sha256 存 Token、另设 `/admin/tokens` 页签发与吊销。
+> 那套已经拆掉：成员自带一枚 Token 后，签发与吊销的界面失去了意义。
 
 ## 常见故障
 
