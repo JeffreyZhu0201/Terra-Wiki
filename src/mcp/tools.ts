@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { recordAudit } from '@/server/audit'
-import { DomainError } from '@/server/errors'
+import { ADMIN_ONLY_MESSAGE, DomainError } from '@/server/errors'
 import {
   createCategory,
   deleteCategory,
@@ -84,10 +84,12 @@ async function toToolError(error: unknown): Promise<ToolResult> {
 /**
  * 分类治理是管理员的活——作者和 MCP 的作者角色都做不到。
  * 后台的 action 有这层校验，MCP 侧必须一样，否则通道不同、权限不同。
+ *
+ * 文案与后台共用一份（ADMIN_ONLY_MESSAGE），同一个错误两边显示同一段话。
  */
 function assertCategoryAdmin(actor: Actor): void {
   if (actor.role !== 'admin') {
-    throw new DomainError('forbidden', '只有管理员能管理分类')
+    throw new DomainError('forbidden', ADMIN_ONLY_MESSAGE)
   }
 }
 
