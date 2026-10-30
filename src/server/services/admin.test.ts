@@ -78,4 +78,23 @@ describe('member suspension', () => {
     const row = (await db.select().from(users).where(eq(users.id, authorId)))[0]!
     expect(row.disabledAt).toBeNull()
   })
+
+  it('suspends the mcp tokens of a disabled member', async () => {
+    const authorId = await createTestUser({ email: 'author@example.com' })
+    const out = await createMcpToken({
+      actor: { kind: 'user', id: authorId, role: 'author' },
+      name: 'agent',
+      canPublish: true,
+    })
+    expect(await verifyMcpToken(out.token)).not.toBeNull()
+
+    await setUserDisabled(authorId, true)
+
+    // Token 是独立于会话的一条通道——停用成员后它必须跟着失效。
+    expect(await verifyMcpToken(out.token)).toBeNull()
+
+    // 重新启用后恢复。
+    await setUserDisabled(authorId, false)
+    expect(await verifyMcpToken(out.token)).not.toBeNull()
+  })
 })

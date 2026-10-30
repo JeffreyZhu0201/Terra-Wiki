@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireUser } from '@/server/auth/session'
 import { destroySession } from '@/server/auth/session'
-import { DomainError } from '@/server/errors'
+import { DomainError, ADMIN_ONLY_MESSAGE } from '@/server/errors'
 import { recordAudit } from '@/server/audit'
 import {
   createCategory,
@@ -51,7 +51,8 @@ function back(path: string, result: ActionResult): never {
 async function requireAdmin(): Promise<SessionUser> {
   const user = await requireUser()
   if (user.role !== 'admin') {
-    throw new DomainError('forbidden', '仅管理员可执行此操作')
+    // 文案与 MCP 侧共用一份——同一个错误，两个通道显示同一段话。
+    throw new DomainError('forbidden', ADMIN_ONLY_MESSAGE)
   }
   return user
 }

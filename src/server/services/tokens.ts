@@ -79,6 +79,11 @@ export async function revokeMcpToken(id: string): Promise<void> {
 /**
  * 校验 Token。**吊销后即使哈希对也必须失效**——
  * 所以这里查的是 revokedAt IS NULL，而不是查完再判断。
+ *
+ * 归属成员被停用时同样不认：网页端停用会清掉所有会话，
+ * 但 Token 是独立于会话的一条通道，停用成员后它必须跟着失效。
+ * 与 getSessionUser 对停用成员的口径一致（读时过滤，不删行——
+ * 重新启用后 Token 自然恢复）。
  */
 export async function verifyMcpToken(token: string): Promise<VerifiedMcpToken | null> {
   const row = (
@@ -91,7 +96,13 @@ export async function verifyMcpToken(token: string): Promise<VerifiedMcpToken | 
       })
       .from(mcpTokens)
       .innerJoin(users, eq(mcpTokens.authorId, users.id))
-      .where(and(eq(mcpTokens.tokenHash, sha256(token)), isNull(mcpTokens.revokedAt)))
+      .where(
+        and(
+          eq(mcpTokens.tokenHash, sha256(token)),
+          isNull(mcpTokens.revokedAt),
+          isNull(users.disabledAt),
+        ),
+      )
   )[0]
   if (!row) return null
 

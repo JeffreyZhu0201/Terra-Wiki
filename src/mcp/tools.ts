@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { recordAudit } from '@/server/audit'
-import { DomainError } from '@/server/errors'
+import { ADMIN_ONLY_MESSAGE, DomainError } from '@/server/errors'
 import {
   createCategory,
   deleteCategory,
@@ -29,6 +29,7 @@ import { listRevisions, restoreRevision } from '@/server/services/revisions'
 import { createTag, listTags, mergeTags, renameTag } from '@/server/services/tags'
 import type { Actor } from '@/server/services/posts'
 import type { McpContext } from './context'
+import { MCP_INSTRUCTIONS } from './instructions'
 
 export type ToolResult = {
   content: { type: 'text'; text: string }[]
@@ -83,10 +84,12 @@ async function toToolError(error: unknown): Promise<ToolResult> {
 /**
  * 分类治理是管理员的活——作者和 MCP 的作者角色都做不到。
  * 后台的 action 有这层校验，MCP 侧必须一样，否则通道不同、权限不同。
+ *
+ * 文案与后台共用一份（ADMIN_ONLY_MESSAGE），同一个错误两边显示同一段话。
  */
 function assertCategoryAdmin(actor: Actor): void {
   if (actor.role !== 'admin') {
-    throw new DomainError('forbidden', '只有管理员能管理分类')
+    throw new DomainError('forbidden', ADMIN_ONLY_MESSAGE)
   }
 }
 
@@ -271,12 +274,12 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
   server.registerTool(
     'list_revisions',
     {
-      description: '列出某篇文章的历史版本（最新在前）。',
+      description: '列出某篇文章的历史版本（最新在前）。只对作者本人与管理员可见。',
       inputSchema: z.object({ postId: z.string() }),
     },
     async ({ postId }) =>
       run(async () => {
-        const revisions = await listRevisions(postId)
+        const revisions = await listRevisions({ postId, actor })
         return revisions.map((revision) => ({
           id: revision.id,
           title: revision.title,
@@ -322,7 +325,15 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
           action: 'post.create',
           target: { type: 'post', id: post.id },
         })
-        return { id: post.id, slug: post.slug, status: post.status, title: post.title }
+        return {
+          id: post.id,
+          slug: post.slug,
+          status: post.status,
+          title: post.title,
+          // 连同 updatedAt 一起返回：Agent 拿到就能直接喂给下一次
+          // update_post 的乐观锁，不必多读一次。
+          updatedAt: post.updatedAt.toISOString(),
+        }
       }),
   )
 
@@ -331,7 +342,9 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
     {
       description:
         '更新文章内容。tags 是最终集合；addTags / removeTags 做增删。' +
-        '不接受 status——状态变更走 publish_post / unpublish_post / archive_post。',
+        '不接受 status——状态变更走 publish_post / unpublish_post / archive_post。' +
+        '传 expectedUpdatedAt（上次读到的 updatedAt）可做乐观锁，' +
+        '文章被别人改过时返回冲突而不是静默覆盖。',
       inputSchema: z.strictObject({
         postId: z.string(),
         title: z.string().optional(),
@@ -341,13 +354,29 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
         tags: z.array(z.string()).optional().describe('最终标签集合'),
         addTags: z.array(z.string()).optional(),
         removeTags: z.array(z.string()).optional(),
+        expectedUpdatedAt: z
+          .string()
+          .optional()
+          .describe('上次读到的 updatedAt（ISO 8601）。与当前不一致时拒绝写入'),
       }),
     },
-    async ({ postId, title, summary, bodyMd, slug, tags, addTags, removeTags }) =>
+    async ({ postId, title, summary, bodyMd, slug, tags, addTags, removeTags, expectedUpdatedAt }) =>
       run(async () => {
         const current = await getPostById(postId)
         if (!current) throw new DomainError('not_found', '文章不存在', { postId })
         assertCanModify(actor, current)
+
+        let expected: Date | undefined
+        if (expectedUpdatedAt !== undefined) {
+          expected = new Date(expectedUpdatedAt)
+          // 非法日期会让 service 的比较算出 NaN，冲突检查静默失效——
+          // 宁可报参数错，也不能让它变成"没检查"。
+          if (Number.isNaN(expected.getTime())) {
+            throw new DomainError('invalid', 'expectedUpdatedAt 不是合法的时间', {
+              expectedUpdatedAt,
+            })
+          }
+        }
 
         let nextTags: string[] | undefined
         if (tags !== undefined || addTags !== undefined || removeTags !== undefined) {
@@ -371,6 +400,7 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
           ...(bodyMd !== undefined ? { bodyMd } : {}),
           ...(slug !== undefined ? { slug } : {}),
           ...(nextTags !== undefined ? { tags: nextTags } : {}),
+          ...(expected !== undefined ? { expectedUpdatedAt: expected } : {}),
         })
         await recordAudit({
           actor,
@@ -651,7 +681,11 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
 export function createMcpServer(ctx: McpContext): McpServer {
   const server = new McpServer(
     { name: 'terra-wiki', version: '0.1.0' },
-    { capabilities: { tools: {} } },
+    {
+      capabilities: { tools: {} },
+      // 随 initialize 下发，Agent 不读文档也能知道写入契约。
+      instructions: MCP_INSTRUCTIONS,
+    },
   )
   registerTools(server, ctx)
   return server

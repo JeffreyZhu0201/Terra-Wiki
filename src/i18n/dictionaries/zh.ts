@@ -1,3 +1,5 @@
+import { ADMIN_ONLY_MESSAGE } from '@/server/errors'
+
 const zh = {
   siteName: 'Terra-Wiki',
   navSearch: '搜索',
@@ -113,7 +115,8 @@ const zh = {
   adminSettingsRssTitle: 'RSS 标题',
   adminLogout: '退出登录',
   adminBackToSite: '回到站点',
-  adminOnlyAdmin: '仅管理员可执行此操作',
+  // 与 MCP 侧共用一份文案——同一个错误，两个通道显示同一段话。
+  adminOnlyAdmin: ADMIN_ONLY_MESSAGE,
   adminDeleteConfirm: '确定删除？',
   adminNoItems: '没有内容',
   adminWordCount: '字数',
