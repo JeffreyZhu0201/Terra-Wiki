@@ -85,6 +85,8 @@ const en: typeof zh = {
   adminReload: 'Reload',
   adminNewCategory: 'New category',
   adminNewTag: 'New tag',
+  adminTagPlaceholder: 'Separate tags with commas',
+  adminTagRemove: 'Remove tag',
   adminRename: 'Rename',
   adminMove: 'Move',
   adminDelete: 'Delete',

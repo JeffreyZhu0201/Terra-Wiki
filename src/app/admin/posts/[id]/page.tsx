@@ -82,6 +82,8 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
           archive: dict.adminArchive,
           conflict: dict.adminConflict,
           reload: dict.adminReload,
+          tagPlaceholder: dict.adminTagPlaceholder,
+          tagRemove: dict.adminTagRemove,
         }}
       />
 

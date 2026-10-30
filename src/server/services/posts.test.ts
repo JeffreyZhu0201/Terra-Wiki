@@ -121,6 +121,23 @@ describe('posts', () => {
     expect(listed.items[0]?.tags.map((tag) => tag.slug).sort()).toEqual(['mcp', 'next-js'])
   })
 
+  it('creates tags that do not exist yet and attaches them', async () => {
+    const cat = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const post = await createPost({
+      actor: author,
+      categoryId: cat.id,
+      title: 'A',
+      bodyMd: 'x',
+      tags: ['全新标签', 'Another'],
+    })
+    await publishPost({ actor: author, id: post.id })
+    const listed = await listPosts({ actor: author })
+    expect(listed.items[0]?.tags.map((tag) => tag.slug).sort()).toEqual([
+      'another',
+      'quan-xin-biao-qian',
+    ])
+  })
+
   it('finds a chinese two-character term in the title', async () => {
     const cat = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
     const p = await createPost({ actor: author, categoryId: cat.id, title: '索引的原理', bodyMd: '正文' })
