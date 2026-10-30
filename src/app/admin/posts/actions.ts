@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { requireUser } from '@/server/auth/session'
 import { recordAudit } from '@/server/audit'
 import { DomainError } from '@/server/errors'
@@ -24,6 +25,17 @@ export type PostActionResult = {
 function str(formData: FormData, key: string): string {
   const value = formData.get(key)
   return typeof value === 'string' ? value : ''
+}
+
+/** 提交后带着结果跳回页面——结果走 query，页面用 Flash 渲染。 */
+function back(path: string, result: { ok: boolean; message?: string }): never {
+  const params = new URLSearchParams()
+  if (result.ok) {
+    if (result.message) params.set('ok', result.message)
+  } else {
+    params.set('error', result.message ?? '操作失败')
+  }
+  redirect(params.size > 0 ? `${path}?${params.toString()}` : path)
 }
 
 function strOrNull(formData: FormData, key: string): string | null {
@@ -146,22 +158,25 @@ async function changeStatus(
   }
 }
 
-export async function restoreRevisionAction(formData: FormData): Promise<PostActionResult> {
+/**
+ * 恢复历史版本。form action 必须是 void 返回——
+ * 内联闭包也不能传给 form，只能直接引用 server function。
+ */
+export async function restoreRevisionAction(formData: FormData): Promise<void> {
   const user = await requireUser()
-  const actor = { kind: 'user' as const, id: user.id, role: user.role }
   const postId = str(formData, 'postId')
   const revisionId = str(formData, 'revisionId')
 
   try {
-    await restoreRevision({ actor, postId, revisionId })
-    revalidatePath(`/admin/posts/${postId}`)
-    return { ok: true, postId, message: '已恢复到该版本' }
+    await restoreRevision({ actor: { kind: 'user', id: user.id, role: user.role }, postId, revisionId })
   } catch (error) {
     if (error instanceof DomainError) {
-      return { ok: false, message: error.message, details: error.details }
+      back(`/admin/posts/${postId}`, { ok: false, message: error.message })
     }
     throw error
   }
+  revalidatePath(`/admin/posts/${postId}`)
+  back(`/admin/posts/${postId}`, { ok: true, message: '已恢复到该版本' })
 }
 
 /** 编辑器预览。复用服务端渲染器，不在客户端引入 Shiki。 */

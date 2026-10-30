@@ -23,12 +23,8 @@ export async function RevisionList({ postId, revisions }: { postId: string; revi
           <span className="shrink-0 font-mono text-xs text-ink-muted">
             {revision.bodyMd.length} {dict.adminWordCount}
           </span>
-          <form
-            action={async (formData) => {
-              await restoreRevisionAction(formData)
-            }}
-            className="shrink-0"
-          >
+          {/* action 必须是 server function 引用——内联闭包不能传给 Client Component。 */}
+          <form action={restoreRevisionAction} className="shrink-0">
             <input type="hidden" name="postId" value={postId} />
             <input type="hidden" name="revisionId" value={revision.id} />
             <button
