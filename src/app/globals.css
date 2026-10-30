@@ -397,3 +397,16 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * 侧栏滚动容器：保留滚动能力，但不露系统滚动条。
+ * 右栏里目录过长时靠滚轮/触摸滚动，视觉上与页面融为一体；
+ * 键盘用户仍可用 Tab 聚焦到目录链接（浏览器会自动滚入视野）。
+ */
+.rail-scroll {
+  scrollbar-width: none;
+}
+
+.rail-scroll::-webkit-scrollbar {
+  display: none;
+}
