@@ -84,6 +84,7 @@ const en: typeof zh = {
   adminConflict: 'This post was changed by someone else — reload it',
   adminReload: 'Reload',
   adminNewCategory: 'New category',
+  adminNewTag: 'New tag',
   adminRename: 'Rename',
   adminMove: 'Move',
   adminDelete: 'Delete',

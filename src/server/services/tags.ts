@@ -90,6 +90,14 @@ export async function renameTag(id: string, name: string): Promise<Tag> {
   return row
 }
 
+/** 删除标签及其文章关联。文章本身不动。 */
+export async function deleteTag(id: string): Promise<void> {
+  if (!isUuid(id)) throw new DomainError('not_found', '标签不存在', { id })
+
+  const row = (await db.delete(tags).where(eq(tags.id, id)).returning())[0]
+  if (!row) throw new DomainError('not_found', '标签不存在', { id })
+}
+
 /** 把 source 标签合并进 target：文章关联迁移过去，同一篇只留一条关联。 */
 export async function mergeTags(sourceId: string, targetId: string): Promise<void> {
   if (sourceId === targetId) throw new DomainError('invalid', '不能把标签合并到它自己')

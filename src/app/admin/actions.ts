@@ -12,7 +12,7 @@ import {
   moveCategory,
   renameCategory,
 } from '@/server/services/categories'
-import { mergeTags, renameTag } from '@/server/services/tags'
+import { createTag, deleteTag, mergeTags, renameTag } from '@/server/services/tags'
 import { deleteMedia, uploadMedia } from '@/server/services/media'
 import { createUser, setUserDisabled, setUserRole } from '@/server/services/users'
 import { updateSettings } from '@/server/services/settings'
@@ -161,6 +161,41 @@ export async function deleteCategoryAction(formData: FormData): Promise<void> {
       })
     },
     '分类已删除',
+  )
+}
+
+export async function createTagAction(formData: FormData): Promise<void> {
+  const user = await requireUser()
+
+  await run(
+    '/admin/tags',
+    async () => {
+      const tag = await createTag(str(formData, 'name'))
+      await recordAudit({
+        actor: { kind: 'user', id: user.id, role: user.role },
+        action: 'tag.create',
+        target: { type: 'tag', id: tag.id },
+      })
+    },
+    '标签已创建',
+  )
+}
+
+export async function deleteTagAction(formData: FormData): Promise<void> {
+  const user = await requireUser()
+  const id = str(formData, 'id')
+
+  await run(
+    '/admin/tags',
+    async () => {
+      await deleteTag(id)
+      await recordAudit({
+        actor: { kind: 'user', id: user.id, role: user.role },
+        action: 'tag.delete',
+        target: { type: 'tag', id },
+      })
+    },
+    '标签已删除',
   )
 }
 
