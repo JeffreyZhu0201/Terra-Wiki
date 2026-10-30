@@ -75,6 +75,15 @@ body {
   margin-top: 1.1em;
 }
 
+/*
+ * 正文首个块级元素（往往是带 margin-top 的标题）不要顶出上边距：
+ * 文章头部已经提供了与正文的间隔，这里再叠一层标题的 2em 会让正文顶部空太高。
+ * 清零后首个标题与右栏目录顶端平齐，视觉对齐反而更稳。
+ */
+.prose > :first-child {
+  margin-top: 0;
+}
+
 .prose h1,
 .prose h2,
 .prose h3,
