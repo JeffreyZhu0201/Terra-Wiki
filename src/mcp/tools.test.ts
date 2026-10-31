@@ -155,6 +155,7 @@ describe('mcp tools', () => {
       'delete_media',
       'delete_tag',
       'get_post',
+      'get_post_by_title',
       'get_post_views',
       'get_publish_calendar',
       'list_categories',
@@ -612,5 +613,47 @@ describe('mcp tools', () => {
       arguments: { from: '2020-01-01', to: '2026-10-01' },
     })
     expect(tooLong.isError).toBe(true)
+  })
+
+  it('returns full content for a unique title and candidates when ambiguous', async () => {
+    const guide = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const tips = await createCategory({ parentId: null, slug: 'tips', name: '技巧' })
+    const { ctx } = await tokenContext({ canPublish: false })
+    const client = await connect(ctx)
+
+    await client.callTool({
+      name: 'create_post',
+      arguments: { categoryId: guide.id, title: '部署手册', bodyMd: 'guide 正文' },
+    })
+
+    // 唯一命中 → 全文
+    const one = await client.callTool({ name: 'get_post_by_title', arguments: { title: '部署手册' } })
+    expect(one.isError).toBeFalsy()
+    const payload = JSON.parse(
+      (one.content as { type: 'text'; text: string }[])[0]!.text,
+    ) as { bodyMd: string; categoryPath: string }
+    expect(payload.bodyMd).toBe('guide 正文')
+    expect(payload.categoryPath).toBe('guide')
+
+    // 另一个分类下出现同名文章 → 只给候选，不带正文
+    await client.callTool({
+      name: 'create_post',
+      arguments: { categoryId: tips.id, title: '部署手册', bodyMd: 'tips 正文' },
+    })
+    const many = await client.callTool({ name: 'get_post_by_title', arguments: { title: '部署手册' } })
+    const ambiguous = JSON.parse(
+      (many.content as { type: 'text'; text: string }[])[0]!.text,
+    ) as { matches: { categoryPath: string }[] }
+    expect(ambiguous.matches).toHaveLength(2)
+    expect(ambiguous.matches.map((m) => m.categoryPath).sort()).toEqual(['guide', 'tips'])
+    expect(JSON.stringify(ambiguous)).not.toContain('正文')
+
+    // 不存在的标题 → not_found
+    const none = await client.callTool({
+      name: 'get_post_by_title',
+      arguments: { title: '不存在的标题' },
+    })
+    expect(none.isError).toBe(true)
+    expect((none.content as { type: 'text'; text: string }[])[0]!.text).toContain('文章不存在')
   })
 })

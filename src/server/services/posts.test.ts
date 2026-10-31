@@ -7,6 +7,7 @@ import { createCategory } from './categories'
 import {
   countPostsByDay,
   createPost,
+  findPostsByTitle,
   listPosts,
   publishPost,
   PUBLIC_ACTOR,
@@ -212,5 +213,38 @@ describe('posts', () => {
     const ids = items.map((i) => i.id)
     expect(ids).toContain(late.id)
     expect(ids).not.toContain(early.id)
+  })
+
+  it('finds posts by exact trimmed title', async () => {
+    const cat = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const mine = await createPost({
+      actor: author,
+      categoryId: cat.id,
+      title: '部署手册',
+      bodyMd: '# 正文',
+    })
+
+    const found = await findPostsByTitle({ actor: author, title: '  部署手册  ' })
+    expect(found).toHaveLength(1)
+    expect(found[0]!.id).toBe(mine.id)
+    expect(found[0]!.bodyMd).toBe('# 正文')
+    expect(found[0]!.categoryPath).toBe('guide')
+
+    await expect(findPostsByTitle({ actor: author, title: '   ' })).rejects.toMatchObject({
+      code: 'invalid',
+    })
+  })
+
+  it('hides other authors draft titles but shows them to the owner and admin', async () => {
+    const cat = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const otherId = await createTestUser({ email: 'title-other@example.com' })
+    const other = { kind: 'user' as const, id: otherId, role: 'author' as const }
+    await createPost({ actor: other, categoryId: cat.id, title: '别人的草稿', bodyMd: 'x' })
+
+    expect(await findPostsByTitle({ actor: author, title: '别人的草稿' })).toHaveLength(0)
+    expect(await findPostsByTitle({ actor: other, title: '别人的草稿' })).toHaveLength(1)
+    expect(
+      await findPostsByTitle({ actor: { kind: 'user', id: 'x', role: 'admin' }, title: '别人的草稿' }),
+    ).toHaveLength(1)
   })
 })

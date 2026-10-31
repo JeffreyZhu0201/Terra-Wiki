@@ -18,6 +18,7 @@ import {
   assertCanModify,
   countPostsByDay,
   createPost,
+  findPostsByTitle,
   getPostById,
   getPostBySlug,
   listPostTags,
@@ -234,6 +235,49 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
           bodyMd: post.bodyMd,
           status: post.status,
           authorId: post.authorId,
+          tags,
+          publishedAt: iso(post.publishedAt),
+          createdAt: post.createdAt.toISOString(),
+          updatedAt: post.updatedAt.toISOString(),
+        }
+      }),
+  )
+
+  server.registerTool(
+    'get_post_by_title',
+    {
+      description:
+        '按标题精确匹配查文章（自动去首尾空白）。唯一命中时返回全文；同名文章多篇时只返回候选' +
+        '（含 id 与分类路径），再用 get_post 按 id 取正文。他人的草稿不可见。',
+      inputSchema: z.object({
+        title: z.string().describe('文章标题，精确匹配'),
+      }),
+    },
+    async ({ title }) =>
+      run(async () => {
+        const found = await findPostsByTitle({ actor, title })
+        if (found.length === 0) throw new DomainError('not_found', '文章不存在', { title })
+        if (found.length > 1) {
+          return {
+            matches: found.map((post) => ({
+              id: post.id,
+              categoryPath: post.categoryPath,
+              slug: post.slug,
+              status: post.status,
+            })),
+          }
+        }
+        const post = found[0]!
+        const tags = await listPostTags(post.id)
+        return {
+          id: post.id,
+          slug: post.slug,
+          title: post.title,
+          summary: post.summary,
+          bodyMd: post.bodyMd,
+          status: post.status,
+          authorId: post.authorId,
+          categoryPath: post.categoryPath,
           tags,
           publishedAt: iso(post.publishedAt),
           createdAt: post.createdAt.toISOString(),

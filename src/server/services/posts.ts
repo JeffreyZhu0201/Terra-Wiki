@@ -401,6 +401,33 @@ export async function getPostBySlug(categoryPath: string, slug: string): Promise
   return row ? toPost(row.post) : null
 }
 
+/**
+ * 按标题精确查找（去首尾空白）。标题不唯一，同名可能命中多篇。
+ * 非 published 只有本人和 admin 能看见——与后台的可见范围一致。
+ */
+export async function findPostsByTitle(input: {
+  actor: Actor
+  title: string
+}): Promise<(Post & { categoryPath: string })[]> {
+  const title = input.title.trim()
+  if (!title) throw new DomainError('invalid', '标题不能为空')
+
+  const rows = await db
+    .select({ post: posts, categoryPath: categories.path })
+    .from(posts)
+    .innerJoin(categories, eq(posts.categoryId, categories.id))
+    .where(
+      and(
+        eq(posts.title, title),
+        input.actor.role !== 'admin'
+          ? or(eq(posts.authorId, actorUserId(input.actor)), eq(posts.status, 'published'))!
+          : undefined,
+      ),
+    )
+    .orderBy(desc(posts.publishedAt), desc(posts.updatedAt))
+  return rows.map((row) => ({ ...toPost(row.post), categoryPath: row.categoryPath }))
+}
+
 export async function listPosts(query: {
   actor: Actor
   categoryId?: string
