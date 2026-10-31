@@ -97,7 +97,14 @@ Agent 在自己的会话里建分类、写文章、发布，全程不打开浏�
 
 ### 2️⃣ 配置客户端
 
-**客户端支持 HTTP transport 时**（推荐），直接连 `http://localhost:3000/api/mcp`：
+MCP 只提供 **Streamable HTTP** 一种通道：`http://localhost:3000/api/mcp`，Bearer Token 认证。
+
+**ZCode**：设置 → MCP 服务器 → 新建，类型选 **HTTP**：
+
+- 服务地址：`http://localhost:3000/api/mcp`
+- 请求头：`Authorization` = `Bearer <从 /admin/team 复制>`
+
+或用「完整配置」直接粘贴（两种格式都认）：
 
 ```json
 {
@@ -113,26 +120,9 @@ Agent 在自己的会话里建分类、写文章、发布，全程不打开浏�
 }
 ```
 
-**客户端只说 stdio 协议时**，用仓库里的桥接脚本：
-
-```json
-{
-  "mcpServers": {
-    "terra-wiki": {
-      "command": "node",
-      "args": ["/绝对路径/terra-wiki/mcp/stdio-bridge.mjs"],
-      "env": {
-        "MCP_HTTP_URL": "http://localhost:3000/api/mcp",
-        "MCP_TOKEN": "<从 /admin/team 复制>"
-      }
-    }
-  }
-}
-```
-
-> ⚠️ **两个 Accept 值都要带**：请求头需要
+> ⚠️ **两个 Accept 值都要带**：手动发请求调试时，请求头需要
 > `Accept: application/json, text/event-stream`，缺一个 MCP transport 会回 **406**。
-> 桥接脚本已经自动带上，直连时需要自己写。
+> 客户端（ZCode 等）会自动带上，不用手动配。
 
 ### 3️⃣ 连通性自检
 
@@ -247,7 +237,6 @@ src/
 │  ├─ audit.ts                  审计日志
 │  ├─ errors.ts                 DomainError，全站唯一业务错误类型
 │  └─ mcp/                      MCP 工具定义（tools.ts）、写入契约（instructions.ts）
-├─ mcp/stdio-bridge.mjs         stdio → HTTP 桥接脚本（仓库根，不在 src/ 下）
 └─ drizzle/                     迁移文件
 ```
 
