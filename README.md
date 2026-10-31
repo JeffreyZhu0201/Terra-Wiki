@@ -31,10 +31,13 @@
 
 ## 📖 快速开始（Docker）
 
+推荐**从源码构建**部署：服务器上克隆仓库即可，不依赖任何镜像仓库，构建产物本地可追溯。
+
 ```bash
+git clone https://github.com/JeffreyZhu0201/Terra-Wiki.git && cd Terra-Wiki
 cp .env.example .env
 # 编辑 .env：至少填 BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD
-docker compose up -d
+docker compose up -d --build
 ```
 
 `docker compose up` 会依次完成三件事：
@@ -46,6 +49,19 @@ graph LR
 ```
 
 第一次登录用 `.env` 里的管理员账号，地址 <http://localhost:3000/admin>。
+
+### 更新到新版本
+
+```bash
+git pull                # 拉最新代码（main 跟随 release 发布前进）
+docker compose build    # 先构建：构建失败不影响正在跑的旧容器
+docker compose up -d    # 构建成功再切换；app 启动时自动跑数据库迁移
+```
+
+- 顺序固定：**先 build 成功，再 up**。迁移在 app 容器启动时自动执行，失败则新容器起不来。
+- 升级出问题先看 `docker compose logs app`（迁移日志也在里面）；回滚方式见
+  [docs/operations.md](docs/operations.md)。
+- 环境与模式（本地开发 / 打包 / 正式启动）的区别见 [docs/environments.md](docs/environments.md)。
 
 ---
 
