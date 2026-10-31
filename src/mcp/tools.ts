@@ -26,6 +26,7 @@ import {
   updatePost,
 } from '@/server/services/posts'
 import { listRevisions, restoreRevision } from '@/server/services/revisions'
+import { getViewCount } from '@/server/services/views'
 import { createTag, deleteTag, listTags, mergeTags, renameTag } from '@/server/services/tags'
 import type { Actor } from '@/server/services/posts'
 import type { McpContext } from './context'
@@ -289,6 +290,25 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
           wordCount: revision.bodyMd.length,
           createdAt: revision.createdAt.toISOString(),
         }))
+      }),
+  )
+
+  server.registerTool(
+    'get_post_views',
+    {
+      description: '批量查询文章的累计浏览次数。不存在的文章 id 返回 0。',
+      inputSchema: z.object({
+        postIds: z.array(z.string()).min(1).max(50),
+      }),
+    },
+    async ({ postIds }) =>
+      run(async () => {
+        const unique = [...new Set(postIds)]
+        const items: { postId: string; views: number }[] = []
+        for (const postId of unique) {
+          items.push({ postId, views: await getViewCount(postId) })
+        }
+        return items
       }),
   )
 

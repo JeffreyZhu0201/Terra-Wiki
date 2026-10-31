@@ -3,7 +3,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createTestUser, resetDb } from '../../tests/db'
 import { db } from '../server/db/client'
-import { auditLogs, mcpTokens } from '../server/db/schema'
+import { auditLogs, mcpTokens, postViewDaily } from '../server/db/schema'
 import { eq } from 'drizzle-orm'
 import { createCategory } from '../server/services/categories'
 import { ensureMemberToken, revokeMcpToken } from '../server/services/tokens'
@@ -155,6 +155,7 @@ describe('mcp tools', () => {
       'delete_media',
       'delete_tag',
       'get_post',
+      'get_post_views',
       'list_categories',
       'list_media',
       'list_posts',
@@ -513,5 +514,43 @@ describe('mcp tools', () => {
     })
     expect(missing.isError).toBe(true)
     expect((missing.content as { type: 'text'; text: string }[])[0]!.text).toContain('标签不存在')
+  })
+
+  it('returns cumulative view counts with unknown ids as zero', async () => {
+    const category = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const { ctx } = await tokenContext({ canPublish: false })
+    const client = await connect(ctx)
+    const created = await client.callTool({
+      name: 'create_post',
+      arguments: { categoryId: category.id, title: 'T', bodyMd: 'B' },
+    })
+    const postId = JSON.parse(
+      (created.content as { type: 'text'; text: string }[])[0]!.text,
+    ).id as string
+
+    await db.insert(postViewDaily).values([
+      { postId, day: '2026-10-30', views: 3 },
+      { postId, day: '2026-10-31', views: 5 },
+    ])
+
+    const result = await client.callTool({
+      name: 'get_post_views',
+      arguments: { postIds: [postId, '00000000-0000-0000-0000-000000000000', postId] },
+    })
+    expect(result.isError).toBeFalsy()
+    const items = JSON.parse(
+      (result.content as { type: 'text'; text: string }[])[0]!.text,
+    ) as { postId: string; views: number }[]
+    // 重复 id 去重；不存在的 id 返回 0 而不是报错
+    expect(items).toEqual([
+      { postId, views: 8 },
+      { postId: '00000000-0000-0000-0000-000000000000', views: 0 },
+    ])
+
+    const tooMany = await client.callTool({
+      name: 'get_post_views',
+      arguments: { postIds: Array.from({ length: 51 }, () => postId) },
+    })
+    expect(tooMany.isError).toBe(true)
   })
 })
