@@ -21,7 +21,7 @@
 | | |
 | --- | --- |
 | 🗂️ **分类即独立空间** | 一篇文章只属于一个分类叶子，分类页里不会出现别的分类的文章 |
-| 🤖 **MCP 原生接入** | Agent 用 22 个 MCP 工具建分类、写文章、传图、发布，不用碰浏览器 |
+| 🤖 **MCP 原生接入** | Agent 用 25 个 MCP 工具建分类、写文章、传图、发布，不用碰浏览器 |
 | 🌓 **中英双语** | 界面双语（zh/en），URL 不带语言前缀 |
 | 🎨 **「工程手册」视觉** | 浅色纸面、普鲁士蓝强调、深色代码窗格，支持深色模式 |
 | 🔒 **安全优先** | Markdown 不解析原始 HTML，上传按文件头验类型，停用成员即吊销 Token |
@@ -151,7 +151,7 @@ curl -X POST http://localhost:3000/api/mcp \
 
 ## 🛠️ 工具集
 
-共 **22 个**，覆盖后台能力的全集，减去平台管理（成员、Token 签发、站点设置、审计查询不对外开放——Agent 给自己签发 Token 属于权限提升）。
+共 **25 个**，覆盖后台能力的全集，减去平台管理（成员、Token 签发、站点设置、审计查询不对外开放——Agent 给自己签发 Token 属于权限提升）。
 
 ### 📖 读
 
@@ -164,6 +164,8 @@ curl -X POST http://localhost:3000/api/mcp \
 | `search_posts` | 全文搜索文章，只返回已发布内容 |
 | `list_media` | 列出媒体库里的图片 |
 | `list_revisions` | 列出某篇文章的历史版本（最新在前） |
+| `get_post_views` | 批量查询文章累计浏览次数，不存在的 id 返回 0 |
+| `get_publish_calendar` | 按天统计已发布文章数（默认最近 90 天，上限 366 天） |
 
 ### ✏️ 写
 
@@ -177,6 +179,7 @@ curl -X POST http://localhost:3000/api/mcp \
 | `create_tag` | 创建标签。同名标签已存在时直接返回它 |
 | `rename_tag` | 重命名标签，slug 同步更新，旧标签页留 301 |
 | `merge_tags` | 把 `source` 标签合并进 `target` 标签，文章关联一起迁移 |
+| `delete_tag` | 删除标签，文章关联一并移除 |
 | `delete_media` | 删除媒体文件与记录 |
 | `restore_revision` | 回滚到指定历史版本。只恢复 title / summary / body_md |
 | `upload_image` | 上传图片（base64），返回可直接插入 Markdown 的 URL |
