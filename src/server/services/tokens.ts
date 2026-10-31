@@ -1,16 +1,17 @@
 import { randomBytes } from 'node:crypto'
-import { and, desc, eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '../db/client'
 import { mcpTokens, users } from '../db/schema'
-import { sha256 } from '../crypto'
 import { DomainError } from '../errors'
-import { actorUserId, type Actor } from './posts'
 
-export type McpTokenInfo = {
+/**
+ * 每个成员自带一枚 Token，明文入库——团队页要能随时复制，
+ * 存哈希就拿不回来了。密级由 canPublish 与成员停用状态控制。
+ */
+export type MemberToken = {
   id: string
   name: string
-  authorId: string
-  authorName: string
+  token: string
   canPublish: boolean
   lastUsedAt: Date | null
   revokedAt: Date | null
@@ -24,49 +25,45 @@ export type VerifiedMcpToken = {
   canPublish: boolean
 }
 
+function newTokenValue(): string {
+  return randomBytes(32).toString('base64url')
+}
+
 /**
- * 签发一个 Token。明文只在这一次返回，库里只存 sha256。
+ * 取成员自带的 Token；还没有就发一枚。每个成员恒只有一枚。
  */
-export async function createMcpToken(input: {
-  actor: Actor
+export async function ensureMemberToken(input: {
+  userId: string
   name: string
-  canPublish: boolean
-}): Promise<{ id: string; token: string }> {
-  const token = randomBytes(32).toString('base64url')
+}): Promise<MemberToken> {
+  const existing = (
+    await db.select().from(mcpTokens).where(eq(mcpTokens.authorId, input.userId))
+  )[0]
+  if (existing) return existing
 
   const row = (
     await db
       .insert(mcpTokens)
       .values({
         name: input.name,
-        tokenHash: sha256(token),
-        authorId: actorUserId(input.actor),
-        canPublish: input.canPublish,
+        token: newTokenValue(),
+        authorId: input.userId,
       })
+      .onConflictDoNothing()
       .returning()
   )[0]
-  if (!row) throw new DomainError('conflict', 'Token 创建失败')
-
-  return { id: row.id, token }
+  // 并发下另一路刚插入成功，再读一次。
+  if (row) return row
+  const raced = (
+    await db.select().from(mcpTokens).where(eq(mcpTokens.authorId, input.userId))
+  )[0]
+  if (!raced) throw new DomainError('conflict', 'Token 创建失败')
+  return raced
 }
 
-export async function listMcpTokens(): Promise<McpTokenInfo[]> {
-  const rows = await db
-    .select({
-      id: mcpTokens.id,
-      name: mcpTokens.name,
-      authorId: mcpTokens.authorId,
-      authorName: users.name,
-      canPublish: mcpTokens.canPublish,
-      lastUsedAt: mcpTokens.lastUsedAt,
-      revokedAt: mcpTokens.revokedAt,
-      createdAt: mcpTokens.createdAt,
-    })
-    .from(mcpTokens)
-    .innerJoin(users, eq(mcpTokens.authorId, users.id))
-    .orderBy(desc(mcpTokens.createdAt))
-
-  return rows
+export async function listMemberTokens(): Promise<Map<string, MemberToken>> {
+  const rows = await db.select().from(mcpTokens)
+  return new Map(rows.map((row) => [row.authorId, row]))
 }
 
 export async function revokeMcpToken(id: string): Promise<void> {
@@ -77,7 +74,7 @@ export async function revokeMcpToken(id: string): Promise<void> {
 }
 
 /**
- * 校验 Token。**吊销后即使哈希对也必须失效**——
+ * 校验 Token。**吊销后即使明文对也必须失效**——
  * 所以这里查的是 revokedAt IS NULL，而不是查完再判断。
  *
  * 归属成员被停用时同样不认：网页端停用会清掉所有会话，
@@ -96,13 +93,7 @@ export async function verifyMcpToken(token: string): Promise<VerifiedMcpToken | 
       })
       .from(mcpTokens)
       .innerJoin(users, eq(mcpTokens.authorId, users.id))
-      .where(
-        and(
-          eq(mcpTokens.tokenHash, sha256(token)),
-          isNull(mcpTokens.revokedAt),
-          isNull(users.disabledAt),
-        ),
-      )
+      .where(and(eq(mcpTokens.token, token), isNull(mcpTokens.revokedAt), isNull(users.disabledAt)))
   )[0]
   if (!row) return null
 
@@ -112,6 +103,18 @@ export async function verifyMcpToken(token: string): Promise<VerifiedMcpToken | 
     role: row.role,
     canPublish: row.canPublish,
   }
+}
+
+/** 改 Token 的发布权限。默认 false——Agent 只能写草稿。 */
+export async function setTokenCanPublish(authorId: string, canPublish: boolean): Promise<void> {
+  const row = (
+    await db
+      .update(mcpTokens)
+      .set({ canPublish })
+      .where(eq(mcpTokens.authorId, authorId))
+      .returning()
+  )[0]
+  if (!row) throw new DomainError('not_found', 'Token 不存在', { authorId })
 }
 
 export async function touchMcpToken(id: string): Promise<void> {

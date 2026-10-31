@@ -40,5 +40,25 @@ describe('markdown', () => {
     const { html } = await renderMarkdown('```notalang\nfoo\n```')
     expect(html).not.toContain('code-pane')
     expect(html).toContain('foo')
+    // 回退的代码块要带上 code-block 类——CSS 靠它给深色底与浅色文字。
+    expect(html).toContain('code-block')
+  })
+
+  it('always shows the language label, even when the title equals it', async () => {
+    const { html } = await renderMarkdown('```ts title="ts"\nconst a = 1\n```')
+    expect(html).toContain('code-pane-lang')
+  })
+
+  it('shows the file name on the left and the language on the right', async () => {
+    const { html } = await renderMarkdown('```ts title="src/app.ts"\nconst a = 1\n```')
+    expect(html).toContain('code-pane-lang')
+    expect(html).toContain('src/app.ts')
+  })
+
+  it('leaves the title empty when no file name is given', async () => {
+    const { html } = await renderMarkdown('```ts\nconst a = 1\n```')
+    // 语言标签仍固定在右侧，但左侧不再拿语言当标题占位。
+    expect(html).toContain('code-pane-lang')
+    expect(html).toContain('<span class="code-pane-title"></span>')
   })
 })

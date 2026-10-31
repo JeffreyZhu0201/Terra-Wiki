@@ -67,11 +67,11 @@ src/server/db/*         Drizzle schema 与 client，所有 SQL 经 Drizzle
 
 ## 前端效果
 
-设计语言：「工程手册」——浅色纸面、普鲁士蓝强调、衬线中文标题、深色代码窗格。细节以 `globals.css` 为唯一事实源。
+设计语言：「工程手册」——浅色纸面、普鲁士蓝强调、衬线中文标题、随主题切换配色的代码窗格。细节以 `globals.css` 为唯一事实源。
 
 - 主题变量全部定义在 `globals.css` 的 `@theme` 块。**禁用 `@theme inline`**：它会把颜色内联进工具类、不输出 CSS 变量，导致 `.dark` 覆盖失效（主题切换曾因此整个失灵）。
 - 深色模式：`next-themes`（`attribute="class"`）往 `<html>` 加 `.dark`，深色值只写在 `.dark { }` 的变量覆盖里。新颜色必须同时给浅色和深色两套值，用 `text-ink`、`bg-paper` 这类语义类，不写裸色值。
-- 深色不是把浅色反色：代码窗格（`.code-pane`）两种模式下都比页面底色更深；Shiki 双主题靠 `--shiki-light/dark` 切换。
+- 深色不是把浅色反色：代码窗格（`.code-pane`）的底色、标题栏、复制按钮配色全部走 `--color-code-*` 变量，亮色模式浅底深字、暗色模式深底浅字；Shiki 双主题靠 `--shiki-light/dark` 切换，文字色必须与窗格底色同明暗，不许深字压深底。
 - 组件默认 Server Component；`'use client'` 只给真需要交互的小件（ThemeToggle、CodeCopyEnabler 这类）。通用原语放 `components/ui/`，页面布局件放 `components/layout/`，文章内件放 `components/article/`。
 - 界面文案一律走 `src/i18n/dictionaries/{zh,en}.ts`，组件里不写死中英文。服务端用 `getLocale()`，客户端组件从 `src/i18n/locale` 取常量与类型。
 - 正文样式集中在 `.prose`：列宽 68ch、衬线标题、行高 1.75。改排版只动 `globals.css`，不在组件里散写样式。

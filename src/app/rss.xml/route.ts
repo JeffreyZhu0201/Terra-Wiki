@@ -1,8 +1,7 @@
 import { listPosts, PUBLIC_ACTOR } from '@/server/services/posts'
+import { getSettings } from '@/server/services/settings'
 
 export const dynamic = 'force-dynamic'
-
-const SITE_URL = process.env.SITE_URL ?? 'http://localhost:3000'
 
 function escapeXml(value: string): string {
   return value
@@ -14,7 +13,11 @@ function escapeXml(value: string): string {
 }
 
 export async function GET(): Promise<Response> {
-  const { items } = await listPosts({ actor: PUBLIC_ACTOR, limit: 50 })
+  const [{ items }, settings] = await Promise.all([
+    listPosts({ actor: PUBLIC_ACTOR, limit: 50 }),
+    getSettings(),
+  ])
+  const SITE_URL = settings.siteUrl
 
   const entries = items
     .map((post) => {
@@ -38,9 +41,9 @@ export async function GET(): Promise<Response> {
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<rss version="2.0">',
     '  <channel>',
-    '    <title>Terra-Wiki</title>',
+    `    <title>${escapeXml(settings.rssTitle)}</title>`,
     `    <link>${SITE_URL}</link>`,
-    '    <description>面向程序员的技术文档站</description>',
+    `    <description>${escapeXml(settings.siteDescription)}</description>`,
     entries,
     '  </channel>',
     '</rss>',

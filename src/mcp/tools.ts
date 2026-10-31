@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
+import { dayKey, parseDayKey } from '@/lib/calendar'
 import { recordAudit } from '@/server/audit'
 import { ADMIN_ONLY_MESSAGE, DomainError } from '@/server/errors'
 import {
@@ -15,6 +16,7 @@ import {
   actorUserId,
   archivePost,
   assertCanModify,
+  countPostsByDay,
   createPost,
   getPostById,
   getPostBySlug,
@@ -26,7 +28,8 @@ import {
   updatePost,
 } from '@/server/services/posts'
 import { listRevisions, restoreRevision } from '@/server/services/revisions'
-import { createTag, listTags, mergeTags, renameTag } from '@/server/services/tags'
+import { getViewCount } from '@/server/services/views'
+import { createTag, deleteTag, listTags, mergeTags, renameTag } from '@/server/services/tags'
 import type { Actor } from '@/server/services/posts'
 import type { McpContext } from './context'
 import { MCP_INSTRUCTIONS } from './instructions'
@@ -292,6 +295,65 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
       }),
   )
 
+  server.registerTool(
+    'get_post_views',
+    {
+      description: '批量查询文章的累计浏览次数。不存在的文章 id 返回 0。',
+      inputSchema: z.object({
+        postIds: z.array(z.string()).min(1).max(50),
+      }),
+    },
+    async ({ postIds }) =>
+      run(async () => {
+        const unique = [...new Set(postIds)]
+        const items: { postId: string; views: number }[] = []
+        for (const postId of unique) {
+          items.push({ postId, views: await getViewCount(postId) })
+        }
+        return items
+      }),
+  )
+
+  server.registerTool(
+    'get_publish_calendar',
+    {
+      description:
+        '按天统计已发布文章数（按 published_at，本地时区）。from / to 省略时默认最近 90 天；' +
+        '跨度上限 366 天；count 为 0 的天也返回。',
+      inputSchema: z.object({
+        from: z.string().optional().describe('YYYY-MM-DD（含）'),
+        to: z.string().optional().describe('YYYY-MM-DD（含）'),
+      }),
+    },
+    async ({ from, to }) =>
+      run(async () => {
+        const toDay = to ? parseDayKey(to) : new Date()
+        if (!toDay) throw new DomainError('invalid', 'to 不是合法的日期', { to })
+        const toZero = new Date(toDay.getFullYear(), toDay.getMonth(), toDay.getDate())
+        const fromDay = from
+          ? parseDayKey(from)
+          : new Date(toZero.getFullYear(), toZero.getMonth(), toZero.getDate() - 89)
+        if (!fromDay) throw new DomainError('invalid', 'from 不是合法的日期', { from })
+        const fromZero = new Date(fromDay.getFullYear(), fromDay.getMonth(), fromDay.getDate())
+
+        const spanDays = Math.round((toZero.getTime() - fromZero.getTime()) / 86_400_000) + 1
+        if (spanDays < 1) throw new DomainError('invalid', 'from 不能晚于 to', { from, to })
+        if (spanDays > 366) throw new DomainError('invalid', '查询范围超过 366 天', { from, to })
+
+        // 逐天推进用 Date 构造而不是毫秒累加——夏令时切换那天不会漂移。
+        const counts = await countPostsByDay(
+          fromZero,
+          new Date(toZero.getFullYear(), toZero.getMonth(), toZero.getDate() + 1),
+        )
+        const items: { day: string; count: number }[] = []
+        for (let offset = 0; offset < spanDays; offset++) {
+          const key = dayKey(new Date(fromZero.getFullYear(), fromZero.getMonth(), fromZero.getDate() + offset))
+          items.push({ day: key, count: counts.get(key) ?? 0 })
+        }
+        return items
+      }),
+  )
+
   // ---------- 写 ----------
 
   server.registerTool(
@@ -514,6 +576,20 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
           target: { type: 'tag', id: targetId },
           meta: { sourceId },
         })
+        return { ok: true }
+      }),
+  )
+
+  server.registerTool(
+    'delete_tag',
+    {
+      description: '删除标签，文章关联一并移除。',
+      inputSchema: z.object({ tagId: z.string() }),
+    },
+    async ({ tagId }) =>
+      run(async () => {
+        await deleteTag(tagId)
+        await recordAudit({ actor, action: 'tag.delete', target: { type: 'tag', id: tagId } })
         return { ok: true }
       }),
   )

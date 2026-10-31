@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { previewMarkdownAction, savePostAction } from '@/app/admin/posts/actions'
+import { TagField } from '@/components/admin/TagField'
 
 export type EditorCategory = { id: string; name: string; path: string }
 export type EditorTag = { slug: string; name: string }
@@ -23,6 +24,8 @@ export type EditorLabels = {
   archive: string
   conflict: string
   reload: string
+  tagPlaceholder: string
+  tagRemove: string
 }
 
 export type EditorPost = {
@@ -58,7 +61,7 @@ export function MarkdownEditor({
   const [summary, setSummary] = useState(post?.summary ?? '')
   const [slug, setSlug] = useState(post?.slug ?? '')
   const [categoryId, setCategoryId] = useState(post?.categoryId ?? categories[0]?.id ?? '')
-  const [tagText, setTagText] = useState(post?.tags.map((tag) => tag.name).join(', ') ?? '')
+  const [tagNames, setTagNames] = useState<string[]>(post?.tags.map((tag) => tag.name) ?? [])
   const [bodyMd, setBodyMd] = useState(post?.bodyMd ?? '')
   const [preview, setPreview] = useState('')
   const [status, setStatus] = useState<string | null>(null)
@@ -95,7 +98,8 @@ export function MarkdownEditor({
     formData.set('summary', summary)
     formData.set('slug', slug)
     formData.set('categoryId', categoryId)
-    formData.set('tags', tagText)
+    // 逗号分隔，服务端按逗号拆开并自动建不存在的标签。
+    formData.set('tags', tagNames.join(','))
     formData.set('bodyMd', bodyMd)
 
     const result = await savePostAction(formData)
@@ -166,15 +170,20 @@ export function MarkdownEditor({
           />
         </label>
 
-        <label className="block sm:col-span-2">
+        <div className="block sm:col-span-2">
           <span className="font-mono text-xs text-ink-muted">{labels.tags}</span>
-          <input
-            value={tagText}
-            onChange={(event) => setTagText(event.target.value)}
-            placeholder={tags.map((tag) => tag.name).join(', ')}
-            className="mt-1 w-full border border-rule bg-surface px-3 py-2 text-ink outline-none focus-visible:border-accent"
-          />
-        </label>
+          <div className="mt-1 w-full border border-rule bg-surface px-2 py-1.5 focus-within:border-accent">
+            <TagField
+              initialTags={post?.tags.map((tag) => tag.name) ?? []}
+              labels={{
+                placeholder:
+                  tags.length > 0 ? labels.tagPlaceholder + '：' + tags.map((tag) => tag.name).join(', ') : labels.tagPlaceholder,
+                remove: labels.tagRemove,
+              }}
+              onChange={setTagNames}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

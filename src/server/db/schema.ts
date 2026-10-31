@@ -155,9 +155,11 @@ export const postViewVisitors = pgTable(
 export const mcpTokens = pgTable('mcp_tokens', {
   id: uuidPrimaryKey(),
   name: text('name').notNull(),
-  tokenHash: text('token_hash').notNull().unique(),
+  // 每个成员自带一枚 Token，明文入库——团队页要能随时复制。
+  token: text('token').notNull().unique(),
   authorId: uuid('author_id')
     .notNull()
+    .unique()
     .references(() => users.id, { onDelete: 'cascade' }),
   canPublish: boolean('can_publish').notNull().default(false),
   lastUsedAt: timestamp('last_used_at', { withTimezone: true }),

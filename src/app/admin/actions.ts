@@ -12,11 +12,11 @@ import {
   moveCategory,
   renameCategory,
 } from '@/server/services/categories'
-import { mergeTags, renameTag } from '@/server/services/tags'
+import { createTag, deleteTag, mergeTags, renameTag } from '@/server/services/tags'
 import { deleteMedia, uploadMedia } from '@/server/services/media'
 import { createUser, setUserDisabled, setUserRole } from '@/server/services/users'
-import { createMcpToken, revokeMcpToken } from '@/server/services/tokens'
-import { updateSettings } from '@/server/services/settings'
+import { resetSetting, updateSettings, type SettingKey } from '@/server/services/settings'
+import { setTokenCanPublish } from '@/server/services/tokens'
 import type { SessionUser } from '@/server/auth/session'
 
 /** 表单 action 的结果。带错误信息时页面会显示横幅。 */
@@ -162,6 +162,62 @@ export async function deleteCategoryAction(formData: FormData): Promise<void> {
       })
     },
     '分类已删除',
+  )
+}
+
+export async function createTagAction(formData: FormData): Promise<void> {
+  const user = await requireUser()
+
+  await run(
+    '/admin/tags',
+    async () => {
+      const tag = await createTag(str(formData, 'name'))
+      await recordAudit({
+        actor: { kind: 'user', id: user.id, role: user.role },
+        action: 'tag.create',
+        target: { type: 'tag', id: tag.id },
+      })
+    },
+    '标签已创建',
+  )
+}
+
+export async function deleteTagAction(formData: FormData): Promise<void> {
+  const user = await requireUser()
+  const id = str(formData, 'id')
+
+  await run(
+    '/admin/tags',
+    async () => {
+      await deleteTag(id)
+      await recordAudit({
+        actor: { kind: 'user', id: user.id, role: user.role },
+        action: 'tag.delete',
+        target: { type: 'tag', id },
+      })
+    },
+    '标签已删除',
+  )
+}
+
+/** 改成员 Token 的发布权限。默认关闭——留一个给人确认的环节。 */
+export async function setTokenPublishAction(formData: FormData): Promise<void> {
+  const admin = await requireAdmin()
+  const authorId = str(formData, 'authorId')
+  const canPublish = str(formData, 'canPublish') === 'true'
+
+  await run(
+    '/admin/team',
+    async () => {
+      await setTokenCanPublish(authorId, canPublish)
+      await recordAudit({
+        actor: { kind: 'user', id: admin.id, role: admin.role },
+        action: 'token.canPublish',
+        target: { type: 'token', id: authorId },
+        meta: { canPublish },
+      })
+    },
+    canPublish ? '已允许该 Token 直接发布' : '已收回该 Token 的发布权限',
   )
 }
 
@@ -315,46 +371,22 @@ export async function setUserDisabledAction(formData: FormData): Promise<void> {
   )
 }
 
-/** 签发 Token。明文只在这次响应里返回。 */
-export async function createTokenAction(formData: FormData): Promise<ActionResult> {
+/** 恢复某项到 env 的初始值——删掉 DB 里的覆盖。 */
+export async function resetSettingAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin()
-  const canPublish = formData.get('canPublish') === 'on'
-
-  try {
-    const created = await createMcpToken({
-      actor: { kind: 'user', id: admin.id, role: admin.role },
-      name: str(formData, 'name'),
-      canPublish,
-    })
-    await recordAudit({
-      actor: { kind: 'user', id: admin.id, role: admin.role },
-      action: 'token.create',
-      target: { type: 'token', id: created.id },
-      meta: { canPublish },
-    })
-    revalidatePath('/admin/tokens')
-    return { ok: true, token: created.token, message: 'Token 已签发' }
-  } catch (error) {
-    if (error instanceof DomainError) return { ok: false, message: error.message }
-    throw error
-  }
-}
-
-export async function revokeTokenAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin()
-  const id = str(formData, 'id')
+  const key = str(formData, 'key') as SettingKey
 
   await run(
-    '/admin/tokens',
+    '/admin/settings',
     async () => {
-      await revokeMcpToken(id)
+      await resetSetting(key)
       await recordAudit({
         actor: { kind: 'user', id: admin.id, role: admin.role },
-        action: 'token.revoke',
-        target: { type: 'token', id },
+        action: 'settings.reset',
+        target: { type: 'settings', id: key },
       })
     },
-    'Token 已吊销',
+    '已恢复初始值',
   )
 }
 
@@ -369,6 +401,8 @@ export async function updateSettingsAction(formData: FormData): Promise<void> {
         siteDescription: str(formData, 'siteDescription'),
         siteUrl: str(formData, 'siteUrl'),
         rssTitle: str(formData, 'rssTitle'),
+        siteKeywords: str(formData, 'siteKeywords'),
+        siteFooter: str(formData, 'siteFooter'),
       })
       await recordAudit({
         actor: { kind: 'user', id: admin.id, role: admin.role },

@@ -3,19 +3,22 @@ import {
   count,
   desc,
   eq,
+  gte,
   ilike,
   inArray,
+  lt,
   or,
   sql,
   type SQL,
 } from 'drizzle-orm'
 import { db } from '../db/client'
-import { categories, postRevisions, postTags, posts, tags } from '../db/schema'
+import { categories, postRevisions, postTags, posts, tags, users } from '../db/schema'
 import { DomainError } from '../errors'
 import { isUuid } from '../uuid'
 import { ensureUniqueSlug, isValidSlug, slugify } from '../slug'
 import { getCategoryById } from './categories'
 import { createTag } from './tags'
+import { dayKey, parseDayKey } from '../../lib/calendar'
 
 export type PostStatus = 'draft' | 'published' | 'archived'
 
@@ -36,6 +39,8 @@ export type Post = {
   bodyMd: string
   status: PostStatus
   authorId: string
+  /** 作者名（human 与 token 发布都落到成员头上），文章页展示用。 */
+  authorName?: string
   featured: boolean
   coverImage: string | null
   publishedAt: Date | null
@@ -375,8 +380,14 @@ export async function archivePost(input: { actor: Actor; id: string }): Promise<
 export async function getPostById(id: string): Promise<Post | null> {
   // id 不是 UUID 时直接当作"不存在"——否则数据库会抛原始错误。
   if (!isUuid(id)) return null
-  const row = (await db.select().from(posts).where(eq(posts.id, id)))[0]
-  return row ? toPost(row) : null
+  const row = (
+    await db
+      .select({ post: posts, authorName: users.name })
+      .from(posts)
+      .innerJoin(users, eq(posts.authorId, users.id))
+      .where(eq(posts.id, id))
+  )[0]
+  return row ? { ...toPost(row.post), authorName: row.authorName } : null
 }
 
 export async function getPostBySlug(categoryPath: string, slug: string): Promise<Post | null> {
@@ -395,6 +406,8 @@ export async function listPosts(query: {
   categoryId?: string
   categoryPathPrefix?: string
   tag?: string
+  /** 只看某一天发布的文章（本地时区 YYYY-MM-DD）。 */
+  day?: string
   status?: PostStatus
   authorId?: string
   featured?: boolean
@@ -404,6 +417,15 @@ export async function listPosts(query: {
   const conditions: SQL[] = []
   const status = query.status ?? 'published'
   conditions.push(eq(posts.status, status))
+
+  if (query.day !== undefined) {
+    const day = parseDayKey(query.day)
+    if (day) {
+      const nextDay = new Date(day)
+      nextDay.setDate(nextDay.getDate() + 1)
+      conditions.push(gte(posts.publishedAt, day), lt(posts.publishedAt, nextDay))
+    }
+  }
 
   if (query.categoryId !== undefined) {
     conditions.push(eq(posts.categoryId, query.categoryId))
@@ -468,6 +490,31 @@ export async function listPosts(query: {
   }))
 
   return { items: await attachTags(items), total: totalRow?.total ?? 0 }
+}
+
+/**
+ * 某段区间内每天发布了几篇文章（仅 published）。
+ * 返回 day key → 数量；区间外的天数不会出现在结果里。
+ */
+export async function countPostsByDay(from: Date, toExclusive: Date): Promise<Map<string, number>> {
+  const rows = await db
+    .select({ publishedAt: posts.publishedAt })
+    .from(posts)
+    .where(
+      and(
+        eq(posts.status, 'published'),
+        gte(posts.publishedAt, from),
+        lt(posts.publishedAt, toExclusive),
+      ),
+    )
+
+  const counts = new Map<string, number>()
+  for (const row of rows) {
+    if (!row.publishedAt) continue
+    const key = dayKey(row.publishedAt)
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+  return counts
 }
 
 export async function searchPosts(query: {

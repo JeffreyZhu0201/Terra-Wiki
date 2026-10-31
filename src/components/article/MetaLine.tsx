@@ -6,12 +6,14 @@ export function MetaLine({
   post,
   views,
   publishedLabel,
+  authorLabel,
   readingLabel,
   viewsLabel,
 }: {
   post: Post
   views?: number
   publishedLabel: string
+  authorLabel: string
   readingLabel: string
   viewsLabel: string
 }) {
@@ -23,6 +25,14 @@ export function MetaLine({
       <time dateTime={date.toISOString()}>
         {publishedLabel} {date.toISOString().slice(0, 10)}
       </time>
+      {post.authorName ? (
+        <>
+          <span aria-hidden="true">·</span>
+          <span>
+            {authorLabel} {post.authorName}
+          </span>
+        </>
+      ) : null}
       <span aria-hidden="true">·</span>
       <span>
         {minutes} {readingLabel}
