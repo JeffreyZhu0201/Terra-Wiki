@@ -92,7 +92,6 @@ src/server/
   errors.ts            DomainError，全站唯一业务错误类型
 src/i18n/              locale 常量 + dictionaries/{zh,en}.ts
 src/mcp/               MCP 工具定义（tools.ts）+ instructions.ts（随 initialize 下发给 Agent 的写入契约）
-mcp/stdio-bridge.mjs   stdio → HTTP 桥接脚本（仓库根，不在 src/ 下）
 drizzle/               迁移 SQL（drizzle-kit generate 生成，不手写）
 scripts/seed.sql       演示数据
 ```

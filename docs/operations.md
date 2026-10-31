@@ -69,7 +69,7 @@ UPDATE mcp_tokens SET token = encode(sha256((random()::text || clock_timestamp()
 WHERE author_id = '<成员 id>';
 ```
 
-改完把新值同步到 Agent 端配置（`MCP_TOKEN`）。因为库里是明文，
+改完把新值同步到 Agent 端配置（ZCode MCP 服务器里的 `Authorization` 请求头）。因为库里是明文，
 换 Token 没有任何「只显示一次」的窗口——改库即刻生效。
 
 怀疑 Token 泄露时，同样直接改库作废；成员被停用也会让其 Token 立刻失效
