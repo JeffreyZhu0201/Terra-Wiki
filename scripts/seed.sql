@@ -30,7 +30,7 @@ VALUES
     'install-mcp',
     '用 MCP 装上发布能力',
     '十分钟把 Terra-Wiki 接进你的 Agent。',
-    E'## 准备\n\n先在后台签发一个 Token，默认没有发布权。\n\n```ts title="mcp/stdio-bridge.mjs"\nconst url = process.env.MCP_HTTP_URL\n```\n\n### 安装\n\n```bash\npnpm add -g @modelcontextprotocol/sdk\n```\n\n## 配置\n\n写好 `mcp.json` 就能用了。',
+    E'## 准备\n\n先在后台签发一个 Token，默认没有发布权。\n\n## 配置\n\n在 ZCode 里新建一个 HTTP 类型的 MCP 服务器：\n\n```json title=".zcode/config.json"\n{\n  "mcpServers": {\n    "terra-wiki": {\n      "type": "http",\n      "url": "http://localhost:3000/api/mcp",\n      "headers": {\n        "Authorization": "Bearer <你的 Token>"\n      }\n    }\n  }\n}\n```\n\n保存后就接通了，Agent 会自动拿到写入契约。',
     'published', '11111111-1111-1111-1111-111111111111', true, now(), now(), now()
   ),
   (

@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 /*
- * 「工程手册」方向：浅色纸面 + 普鲁士蓝强调 + 深色代码窗格。
- * 暗色不是把亮色反过来——代码窗格在两种模式下都比页面底色更深。
+ * 「工程手册」方向：浅色纸面 + 普鲁士蓝强调 + 代码窗格随主题切换配色。
+ * 亮色模式下窗格是浅底深字（github-light），暗色模式下是深底浅字（vitesse-dark）。
  */
 
 @theme {
@@ -19,8 +19,22 @@
   --color-accent: #164a7b;
   --color-accent-hover: #123c63;
   --color-accent-soft: #eaf0f7;
-  --color-code-bg: #10161d;
-  --color-code-ink: #e6edf3;
+  --color-code-bg: #eef1f5;
+  --color-code-ink: #1f2328;
+  --color-code-muted: #57606a;
+  --color-code-title: #24292f;
+  --color-code-rule: #d7dde3;
+  --color-code-btn-border: #c3ccd4;
+  --color-code-btn-hover: #97a3af;
+  /* 日历热力：透明起步，逐档加深到灰（半透明黑叠在纸面上即灰，最深也不到纯黑） */
+  --color-cal-0: transparent;
+  --color-cal-1: rgb(20 23 28 / 0.14);
+  --color-cal-2: rgb(20 23 28 / 0.28);
+  --color-cal-3: rgb(20 23 28 / 0.4);
+  --color-cal-4: rgb(20 23 28 / 0.66);
+  --color-cal-text: #1f2328;
+  --color-cal-text-hi: #f4f5f6;
+  --color-cal-today: #f5c56b;
   --color-danger: #b42318;
   --color-success: #147d52;
 }
@@ -42,6 +56,20 @@
   --color-accent-soft: #16283a;
   --color-code-bg: #0a0e13;
   --color-code-ink: #e6edf3;
+  --color-code-muted: rgb(230 237 243 / 0.6);
+  --color-code-title: rgb(230 237 243 / 0.85);
+  --color-code-rule: rgb(255 255 255 / 0.08);
+  --color-code-btn-border: rgb(255 255 255 / 0.15);
+  --color-code-btn-hover: rgb(255 255 255 / 0.35);
+  /* 日历热力：暗色反向，同样是透明起步，半透明白叠在深底上即浅灰 */
+  --color-cal-0: transparent;
+  --color-cal-1: rgb(230 234 240 / 0.14);
+  --color-cal-2: rgb(230 234 240 / 0.28);
+  --color-cal-3: rgb(230 234 240 / 0.4);
+  --color-cal-4: rgb(230 234 240 / 0.66);
+  --color-cal-text: #e6eaf0;
+  --color-cal-text-hi: #14171c;
+  --color-cal-today: #f5c56b;
 }
 
 html {
@@ -73,6 +101,15 @@ body {
 
 .prose > * + * {
   margin-top: 1.1em;
+}
+
+/*
+ * 正文首个块级元素（往往是带 margin-top 的标题）不要顶出上边距：
+ * 文章头部已经提供了与正文的间隔，这里再叠一层标题的 2em 会让正文顶部空太高。
+ * 清零后首个标题与右栏目录顶端平齐，视觉对齐反而更稳。
+ */
+.prose > :first-child {
+  margin-top: 0;
 }
 
 .prose h1,
@@ -157,7 +194,7 @@ body {
   text-align: left;
 }
 
-/* 代码窗格——页面上唯一的深色物体 */
+/* 代码窗格：亮色浅底、暗色深底，配色随主题切换 */
 .code-pane {
   margin: 1.5em 0;
   background: var(--color-code-bg);
@@ -170,14 +207,14 @@ body {
   align-items: center;
   gap: 0.75rem;
   padding: 0.4rem 0.75rem;
-  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+  border-bottom: 1px solid var(--color-code-rule);
   font-family: var(--font-mono);
   font-size: 12px;
-  color: rgb(230 237 243 / 0.6);
+  color: var(--color-code-muted);
 }
 
 .code-pane-title {
-  color: rgb(230 237 243 / 0.85);
+  color: var(--color-code-title);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -193,15 +230,15 @@ body {
   font: inherit;
   color: inherit;
   background: none;
-  border: 1px solid rgb(255 255 255 / 0.15);
+  border: 1px solid var(--color-code-btn-border);
   border-radius: 2px;
   padding: 0.1rem 0.4rem;
   cursor: pointer;
 }
 
 .code-pane-copy:hover {
-  color: rgb(230 237 243 / 1);
-  border-color: rgb(255 255 255 / 0.35);
+  color: var(--color-code-title);
+  border-color: var(--color-code-btn-hover);
 }
 
 .code-pane-body {
@@ -235,7 +272,7 @@ body {
 
 /*
  * 无语言标注（或语言不支持）的代码块：没有 Shiki 高亮，
- * 但外观要与代码窗格一致——同样是页面上唯一的深色物体。
+ * 但外观要与代码窗格一致，配色同样随主题切换。
  */
 .prose pre.code-block {
   margin: 1.5em 0;
@@ -249,6 +286,109 @@ body {
   color: var(--color-code-ink);
 }
 
+/*
+ * 发布日历：发文量热力网格。
+ * 亮色从白到黑（越多越深），暗色相反（从黑到白）。
+ * 今天用淡橙黄圆形标出，选中日加普鲁士蓝描边。
+ */
+.publish-calendar {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-ink);
+}
+
+.calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.calendar-month {
+  margin: 0;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.calendar-head a {
+  display: inline-flex;
+  width: 1.5rem;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-rule);
+  border-radius: 2px;
+  color: var(--color-ink-muted);
+  text-decoration: none;
+}
+
+.calendar-head a:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.calendar-weekday {
+  text-align: center;
+  color: var(--color-ink-muted);
+  font-size: 10px;
+  line-height: 1.8;
+}
+
+.calendar-cell {
+  position: relative;
+  display: flex;
+  aspect-ratio: 1;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  text-decoration: none;
+  color: var(--color-cal-text);
+  background: var(--color-cal-0);
+}
+
+.calendar-cell[data-level='1'] {
+  background: var(--color-cal-1);
+}
+.calendar-cell[data-level='2'] {
+  background: var(--color-cal-2);
+}
+.calendar-cell[data-level='3'] {
+  background: var(--color-cal-3);
+}
+.calendar-cell[data-level='4'] {
+  background: var(--color-cal-4);
+  /* 4 档已是中深灰，正文墨色压上去对比不足，改用反相文字 */
+  color: var(--color-cal-text-hi);
+}
+
+/* 今天：淡橙黄圆形；格内标「今 / Now」而非日期数字，字距收紧保证放得下 */
+.calendar-cell.is-today {
+  box-shadow: inset 0 0 0 2px var(--color-cal-today);
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+/* 点选筛选中的那一天 */
+.calendar-cell.is-selected {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.calendar-cell:hover {
+  filter: brightness(0.92);
+}
+
+.dark .calendar-cell:hover {
+  filter: brightness(1.25);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -258,4 +398,17 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/*
+ * 侧栏滚动容器：保留滚动能力，但不露系统滚动条。
+ * 右栏里目录过长时靠滚轮/触摸滚动，视觉上与页面融为一体；
+ * 键盘用户仍可用 Tab 聚焦到目录链接（浏览器会自动滚入视野）。
+ */
+.rail-scroll {
+  scrollbar-width: none;
+}
+
+.rail-scroll::-webkit-scrollbar {
+  display: none;
 }

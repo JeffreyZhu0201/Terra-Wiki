@@ -3,8 +3,8 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createTestUser, resetDb } from '../../tests/db'
 import { db } from '../server/db/client'
-import { auditLogs, mcpTokens } from '../server/db/schema'
-import { eq } from 'drizzle-orm'
+import { auditLogs, mcpTokens, postViewDaily } from '../server/db/schema'
+import { eq, sql } from 'drizzle-orm'
 import { createCategory } from '../server/services/categories'
 import { ensureMemberToken, revokeMcpToken } from '../server/services/tokens'
 import { createMcpServer } from './tools'
@@ -153,7 +153,11 @@ describe('mcp tools', () => {
       'create_tag',
       'delete_category',
       'delete_media',
+      'delete_tag',
       'get_post',
+      'get_post_by_title',
+      'get_post_views',
+      'get_publish_calendar',
       'list_categories',
       'list_media',
       'list_posts',
@@ -490,5 +494,166 @@ describe('mcp tools', () => {
       arguments: { slug: 'by-admin', name: '管理员建的' },
     })
     expect(ok.isError).toBeFalsy()
+  })
+
+  it('deletes a tag and records the audit', async () => {
+    const { ctx } = await tokenContext({ canPublish: false })
+    const client = await connect(ctx)
+    const { createTag } = await import('../server/services/tags')
+    const tag = await createTag('待删标签')
+
+    const ok = await client.callTool({ name: 'delete_tag', arguments: { tagId: tag.id } })
+    expect(ok.isError).toBeFalsy()
+
+    const { listTags } = await import('../server/services/tags')
+    expect((await listTags()).map((t) => t.name)).not.toContain('待删标签')
+    const entry = (await db.select().from(auditLogs)).find((l) => l.action === 'tag.delete')
+    expect(entry?.actorType).toBe('token')
+
+    const missing = await client.callTool({
+      name: 'delete_tag',
+      arguments: { tagId: '00000000-0000-0000-0000-000000000000' },
+    })
+    expect(missing.isError).toBe(true)
+    expect((missing.content as { type: 'text'; text: string }[])[0]!.text).toContain('标签不存在')
+  })
+
+  it('returns cumulative view counts with unknown ids as zero', async () => {
+    const category = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const { ctx } = await tokenContext({ canPublish: false })
+    const client = await connect(ctx)
+    const created = await client.callTool({
+      name: 'create_post',
+      arguments: { categoryId: category.id, title: 'T', bodyMd: 'B' },
+    })
+    const postId = JSON.parse(
+      (created.content as { type: 'text'; text: string }[])[0]!.text,
+    ).id as string
+
+    await db.insert(postViewDaily).values([
+      { postId, day: '2026-10-30', views: 3 },
+      { postId, day: '2026-10-31', views: 5 },
+    ])
+
+    const result = await client.callTool({
+      name: 'get_post_views',
+      arguments: { postIds: [postId, '00000000-0000-0000-0000-000000000000', postId] },
+    })
+    expect(result.isError).toBeFalsy()
+    const items = JSON.parse(
+      (result.content as { type: 'text'; text: string }[])[0]!.text,
+    ) as { postId: string; views: number }[]
+    // 重复 id 去重；不存在的 id 返回 0 而不是报错
+    expect(items).toEqual([
+      { postId, views: 8 },
+      { postId: '00000000-0000-0000-0000-000000000000', views: 0 },
+    ])
+
+    const tooMany = await client.callTool({
+      name: 'get_post_views',
+      arguments: { postIds: Array.from({ length: 51 }, () => postId) },
+    })
+    expect(tooMany.isError).toBe(true)
+  })
+
+  it('counts published posts per day and reports zero days', async () => {
+    const category = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const { ctx } = await tokenContext({ canPublish: true })
+    const client = await connect(ctx)
+
+    // 发布两篇，把 published_at 钉到已知日期；一篇留 draft 不计入
+    const postIds: string[] = []
+    for (const title of ['第一篇', '第二篇', '草稿']) {
+      const created = await client.callTool({
+        name: 'create_post',
+        arguments: { categoryId: category.id, title, bodyMd: 'B' },
+      })
+      postIds.push(
+        JSON.parse((created.content as { type: 'text'; text: string }[])[0]!.text).id as string,
+      )
+    }
+    await client.callTool({ name: 'publish_post', arguments: { postId: postIds[0]! } })
+    await client.callTool({ name: 'publish_post', arguments: { postId: postIds[1]! } })
+    await db.execute(
+      sql`UPDATE posts SET published_at = ${'2026-10-01 10:00:00'}::timestamp WHERE id = ${postIds[0]!}`,
+    )
+    await db.execute(
+      sql`UPDATE posts SET published_at = ${'2026-10-03 10:00:00'}::timestamp WHERE id = ${postIds[1]!}`,
+    )
+
+    const result = await client.callTool({
+      name: 'get_publish_calendar',
+      arguments: { from: '2026-10-01', to: '2026-10-04' },
+    })
+    expect(result.isError).toBeFalsy()
+    const items = JSON.parse(
+      (result.content as { type: 'text'; text: string }[])[0]!.text,
+    ) as { day: string; count: number }[]
+    expect(items).toEqual([
+      { day: '2026-10-01', count: 1 },
+      { day: '2026-10-02', count: 0 },
+      { day: '2026-10-03', count: 1 },
+      { day: '2026-10-04', count: 0 },
+    ])
+
+    const badRange = await client.callTool({
+      name: 'get_publish_calendar',
+      arguments: { from: '2026-10-04', to: '2026-10-01' },
+    })
+    expect(badRange.isError).toBe(true)
+
+    const badDate = await client.callTool({
+      name: 'get_publish_calendar',
+      arguments: { from: 'not-a-date', to: '2026-10-01' },
+    })
+    expect(badDate.isError).toBe(true)
+
+    const tooLong = await client.callTool({
+      name: 'get_publish_calendar',
+      arguments: { from: '2020-01-01', to: '2026-10-01' },
+    })
+    expect(tooLong.isError).toBe(true)
+  })
+
+  it('returns full content for a unique title and candidates when ambiguous', async () => {
+    const guide = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const tips = await createCategory({ parentId: null, slug: 'tips', name: '技巧' })
+    const { ctx } = await tokenContext({ canPublish: false })
+    const client = await connect(ctx)
+
+    await client.callTool({
+      name: 'create_post',
+      arguments: { categoryId: guide.id, title: '部署手册', bodyMd: 'guide 正文' },
+    })
+
+    // 唯一命中 → 全文
+    const one = await client.callTool({ name: 'get_post_by_title', arguments: { title: '部署手册' } })
+    expect(one.isError).toBeFalsy()
+    const payload = JSON.parse(
+      (one.content as { type: 'text'; text: string }[])[0]!.text,
+    ) as { bodyMd: string; categoryPath: string }
+    expect(payload.bodyMd).toBe('guide 正文')
+    expect(payload.categoryPath).toBe('guide')
+
+    // 另一个分类下出现同名文章 → 只给候选，不带正文
+    await client.callTool({
+      name: 'create_post',
+      arguments: { categoryId: tips.id, title: '部署手册', bodyMd: 'tips 正文' },
+    })
+    const many = await client.callTool({ name: 'get_post_by_title', arguments: { title: '部署手册' } })
+    const ambiguous = JSON.parse(
+      (many.content as { type: 'text'; text: string }[])[0]!.text,
+    ) as { matches: { categoryPath: string }[] }
+    expect(ambiguous.matches).toHaveLength(2)
+    expect(ambiguous.matches.map((m) => m.categoryPath).sort()).toEqual(['guide', 'tips'])
+    expect(JSON.stringify(ambiguous)).not.toContain('正文')
+
+    // 不存在的标题 → not_found
+    const none = await client.callTool({
+      name: 'get_post_by_title',
+      arguments: { title: '不存在的标题' },
+    })
+    expect(none.isError).toBe(true)
+    expect((none.content as { type: 'text'; text: string }[])[0]!.text).toContain('文章不存在')
   })
 })

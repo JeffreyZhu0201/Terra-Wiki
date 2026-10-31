@@ -5,11 +5,13 @@ import { MetaLine, TagLinks } from '@/components/article/MetaLine'
 import { PostList } from '@/components/article/PostList'
 import { CollapsibleTableOfContents, TableOfContents } from '@/components/article/TableOfContents'
 import { ViewCounter } from '@/components/article/ViewCounter'
+import { PublishCalendar } from '@/components/layout/PublishCalendar'
 import { getDictionary, getLocale } from '@/i18n'
+import { dayKey, monthRange } from '@/lib/calendar'
 import { renderMarkdown } from '@/server/markdown/render'
 import { resolvePath } from '@/server/routes/resolve'
 import { getCategoryById } from '@/server/services/categories'
-import { getPostById, listPostTags, listPosts, PUBLIC_ACTOR } from '@/server/services/posts'
+import { countPostsByDay, getPostById, listPostTags, listPosts, PUBLIC_ACTOR } from '@/server/services/posts'
 import { getViewCount } from '@/server/services/views'
 
 export const dynamic = 'force-dynamic'
@@ -94,9 +96,16 @@ export default async function CatchAllPage({ params, searchParams }: Props) {
   const post = await getPostById(resolved.postId)
   if (!post) notFound()
 
-  const { html, toc } = await renderMarkdown(post.bodyMd)
-  const views = await getViewCount(post.id)
-  const tags = await listPostTags(post.id)
+  const now = new Date()
+  const calMonth = { year: now.getFullYear(), month: now.getMonth() + 1 }
+  const [calFrom, calTo] = monthRange(calMonth.year, calMonth.month)
+  const [{ html, toc }, views, tags, counts] = await Promise.all([
+    renderMarkdown(post.bodyMd),
+    getViewCount(post.id),
+    listPostTags(post.id),
+    countPostsByDay(calFrom, calTo),
+  ])
+  const todayKey = dayKey(now)
 
   return (
     <article className="mx-auto w-full max-w-[1180px]">
@@ -135,9 +144,30 @@ export default async function CatchAllPage({ params, searchParams }: Props) {
           </footer>
         </div>
 
-        <aside className="hidden xl:block">
-          <div className="sticky top-24">
-            <TableOfContents entries={toc} label={dict.postTableOfContents} />
+        {/*
+          右栏 fixed 钉在视口：正文在 main 里滚，栏若留在文档流里就会跟着滚。
+          pt-8 与正文、左栏的顶 padding 一致，三栏同一水平线起头。
+          grid 的第二列保留宽度占位，正文列不会被日历压到。
+        */}
+        <aside className="fixed bottom-0 right-[max(1.25rem,calc((100vw-1440px)/2+1.25rem))] top-14 hidden w-[14rem] flex-col pb-8 pt-8 xl:flex">
+          <TableOfContents entries={toc} label={dict.postTableOfContents} />
+          <div className="mt-auto">
+            <PublishCalendar
+              year={calMonth.year}
+              month={calMonth.month}
+              counts={counts}
+              selectedDay={null}
+              labels={{
+                title: dict.calendarTitle,
+                prevMonth: dict.calendarPrevMonth,
+                nextMonth: dict.calendarNextMonth,
+                today: dict.calendarToday,
+                todayMark: dict.calendarTodayMark,
+                weekdays: Array.from(dict.calendarWeekdays),
+              }}
+              dayHref={(day) => `/?day=${day}`}
+              monthHref={(year, month) => `/?month=${year}-${String(month).padStart(2, '0')}`}
+            />
           </div>
         </aside>
       </div>

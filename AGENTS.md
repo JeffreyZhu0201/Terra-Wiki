@@ -20,7 +20,8 @@ pnpm dev                                         # http://localhost:3000
 ```
 
 - 配置全部在 `.env`（模板见 `.env.example`），compose 与 next dev 都自动读取。
-- 正式环境是另一条链路：`docker compose build app && docker compose up -d app`。镜像在构建时打入源码，**改完代码必须重建镜像**才会在 :3000 生效。
+- 三种模式（本地开发 / 打包 / 正式启动）的区别见 `docs/environments.md`，改部署链路前先读。
+- 正式环境走 CI 出的镜像：在 main 上打 `v<version>` tag 后，`.github/workflows/release-image.yml` 自动构建并推送 `ghcr.io/jeffreyzhu0201/terra-wiki:release-<version>`，服务器端 `docker compose pull app && docker compose up -d`。镜像在构建时打入源码，**必须拉新镜像**改动才会在 :3000 生效；数据库迁移在 app 容器启动时自动跑（`scripts/migrate.mjs`），没有独立的 migrate 镜像。
 - 完成的定义：`pnpm typecheck` 与 `pnpm test` 全过。测试连 `TEST_DATABASE_URL`（55432 测试库）。包管理器固定 pnpm（`packageManager` 字段已锁版本），不要用 npm / yarn。
 - 已知坑：本机装了 OrbStack，它会把容器端口自动转发到 localhost。若迁移「成功但没建表」，先确认 `localhost:5432` 实际落在哪个容器（`docker exec <db容器> psql -U terra -d terra -c '\dt'`）。
 
@@ -67,11 +68,11 @@ src/server/db/*         Drizzle schema 与 client，所有 SQL 经 Drizzle
 
 ## 前端效果
 
-设计语言：「工程手册」——浅色纸面、普鲁士蓝强调、衬线中文标题、深色代码窗格。细节以 `globals.css` 为唯一事实源。
+设计语言：「工程手册」——浅色纸面、普鲁士蓝强调、衬线中文标题、随主题切换配色的代码窗格。细节以 `globals.css` 为唯一事实源。
 
 - 主题变量全部定义在 `globals.css` 的 `@theme` 块。**禁用 `@theme inline`**：它会把颜色内联进工具类、不输出 CSS 变量，导致 `.dark` 覆盖失效（主题切换曾因此整个失灵）。
 - 深色模式：`next-themes`（`attribute="class"`）往 `<html>` 加 `.dark`，深色值只写在 `.dark { }` 的变量覆盖里。新颜色必须同时给浅色和深色两套值，用 `text-ink`、`bg-paper` 这类语义类，不写裸色值。
-- 深色不是把浅色反色：代码窗格（`.code-pane`）两种模式下都比页面底色更深；Shiki 双主题靠 `--shiki-light/dark` 切换。
+- 深色不是把浅色反色：代码窗格（`.code-pane`）的底色、标题栏、复制按钮配色全部走 `--color-code-*` 变量，亮色模式浅底深字、暗色模式深底浅字；Shiki 双主题靠 `--shiki-light/dark` 切换，文字色必须与窗格底色同明暗，不许深字压深底。
 - 组件默认 Server Component；`'use client'` 只给真需要交互的小件（ThemeToggle、CodeCopyEnabler 这类）。通用原语放 `components/ui/`，页面布局件放 `components/layout/`，文章内件放 `components/article/`。
 - 界面文案一律走 `src/i18n/dictionaries/{zh,en}.ts`，组件里不写死中英文。服务端用 `getLocale()`，客户端组件从 `src/i18n/locale` 取常量与类型。
 - 正文样式集中在 `.prose`：列宽 68ch、衬线标题、行高 1.75。改排版只动 `globals.css`，不在组件里散写样式。
@@ -92,9 +93,8 @@ src/server/
   errors.ts            DomainError，全站唯一业务错误类型
 src/i18n/              locale 常量 + dictionaries/{zh,en}.ts
 src/mcp/               MCP 工具定义（tools.ts）+ instructions.ts（随 initialize 下发给 Agent 的写入契约）
-mcp/stdio-bridge.mjs   stdio → HTTP 桥接脚本（仓库根，不在 src/ 下）
 drizzle/               迁移 SQL（drizzle-kit generate 生成，不手写）
-scripts/seed.sql       演示数据
+scripts/seed.sql       演示数据；scripts/migrate.mjs 是容器启动时自动迁移用的脚本
 ```
 
 放置约定：新页面先想清楚进 `(public)` 还是 `admin/`；新业务逻辑进 `server/services/` 对应领域文件（没有就新建一个）；纯函数工具进 `src/lib/`。

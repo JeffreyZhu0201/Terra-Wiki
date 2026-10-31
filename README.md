@@ -21,7 +21,7 @@
 | | |
 | --- | --- |
 | 🗂️ **分类即独立空间** | 一篇文章只属于一个分类叶子，分类页里不会出现别的分类的文章 |
-| 🤖 **MCP 原生接入** | Agent 用 22 个 MCP 工具建分类、写文章、传图、发布，不用碰浏览器 |
+| 🤖 **MCP 原生接入** | Agent 用 26 个 MCP 工具建分类、写文章、传图、发布，不用碰浏览器 |
 | 🌓 **中英双语** | 界面双语（zh/en），URL 不带语言前缀 |
 | 🎨 **「工程手册」视觉** | 浅色纸面、普鲁士蓝强调、深色代码窗格，支持深色模式 |
 | 🔒 **安全优先** | Markdown 不解析原始 HTML，上传按文件头验类型，停用成员即吊销 Token |
@@ -97,7 +97,14 @@ Agent 在自己的会话里建分类、写文章、发布，全程不打开浏�
 
 ### 2️⃣ 配置客户端
 
-**客户端支持 HTTP transport 时**（推荐），直接连 `http://localhost:3000/api/mcp`：
+MCP 只提供 **Streamable HTTP** 一种通道：`http://localhost:3000/api/mcp`，Bearer Token 认证。
+
+**ZCode**：设置 → MCP 服务器 → 新建，类型选 **HTTP**：
+
+- 服务地址：`http://localhost:3000/api/mcp`
+- 请求头：`Authorization` = `Bearer <从 /admin/team 复制>`
+
+或用「完整配置」直接粘贴（两种格式都认）：
 
 ```json
 {
@@ -113,26 +120,9 @@ Agent 在自己的会话里建分类、写文章、发布，全程不打开浏�
 }
 ```
 
-**客户端只说 stdio 协议时**，用仓库里的桥接脚本：
-
-```json
-{
-  "mcpServers": {
-    "terra-wiki": {
-      "command": "node",
-      "args": ["/绝对路径/terra-wiki/mcp/stdio-bridge.mjs"],
-      "env": {
-        "MCP_HTTP_URL": "http://localhost:3000/api/mcp",
-        "MCP_TOKEN": "<从 /admin/team 复制>"
-      }
-    }
-  }
-}
-```
-
-> ⚠️ **两个 Accept 值都要带**：请求头需要
+> ⚠️ **两个 Accept 值都要带**：手动发请求调试时，请求头需要
 > `Accept: application/json, text/event-stream`，缺一个 MCP transport 会回 **406**。
-> 桥接脚本已经自动带上，直连时需要自己写。
+> 客户端（ZCode 等）会自动带上，不用手动配。
 
 ### 3️⃣ 连通性自检
 
@@ -151,7 +141,7 @@ curl -X POST http://localhost:3000/api/mcp \
 
 ## 🛠️ 工具集
 
-共 **22 个**，覆盖后台能力的全集，减去平台管理（成员、Token 签发、站点设置、审计查询不对外开放——Agent 给自己签发 Token 属于权限提升）。
+共 **26 个**，覆盖后台能力的全集，减去平台管理（成员、Token 签发、站点设置、审计查询不对外开放——Agent 给自己签发 Token 属于权限提升）。
 
 ### 📖 读
 
@@ -161,9 +151,12 @@ curl -X POST http://localhost:3000/api/mcp \
 | `list_tags` | 列出全部标签及其文章数 |
 | `list_posts` | 列出文章。默认只返回已发布；`status` 可选 `draft` / `published` / `archived` |
 | `get_post` | 按 `postId` 取文章，或按分类路径 + slug 取 |
+| `get_post_by_title` | 按标题精确匹配取全文；同名多篇时返回候选列表 |
 | `search_posts` | 全文搜索文章，只返回已发布内容 |
 | `list_media` | 列出媒体库里的图片 |
 | `list_revisions` | 列出某篇文章的历史版本（最新在前） |
+| `get_post_views` | 批量查询文章累计浏览次数，不存在的 id 返回 0 |
+| `get_publish_calendar` | 按天统计已发布文章数（默认最近 90 天，上限 366 天） |
 
 ### ✏️ 写
 
@@ -177,6 +170,7 @@ curl -X POST http://localhost:3000/api/mcp \
 | `create_tag` | 创建标签。同名标签已存在时直接返回它 |
 | `rename_tag` | 重命名标签，slug 同步更新，旧标签页留 301 |
 | `merge_tags` | 把 `source` 标签合并进 `target` 标签，文章关联一起迁移 |
+| `delete_tag` | 删除标签，文章关联一并移除 |
 | `delete_media` | 删除媒体文件与记录 |
 | `restore_revision` | 回滚到指定历史版本。只恢复 title / summary / body_md |
 | `upload_image` | 上传图片（base64），返回可直接插入 Markdown 的 URL |
@@ -244,7 +238,6 @@ src/
 │  ├─ audit.ts                  审计日志
 │  ├─ errors.ts                 DomainError，全站唯一业务错误类型
 │  └─ mcp/                      MCP 工具定义（tools.ts）、写入契约（instructions.ts）
-├─ mcp/stdio-bridge.mjs         stdio → HTTP 桥接脚本（仓库根，不在 src/ 下）
 └─ drizzle/                     迁移文件
 ```
 
@@ -295,6 +288,7 @@ env 只是**出厂配置**：后台改过之后以数据库为准，改 env 只�
 | 文档 | 内容 |
 | --- | --- |
 | [docs/operations.md](docs/operations.md) | 备份、恢复、升级、Token 轮换、常见故障 |
+| [docs/environments.md](docs/environments.md) | 本地开发 / 打包 / 正式启动的区别 |
 | [docs/branching.md](docs/branching.md) | 分支模型、PR 流程、发布与热修步骤 |
 | [AGENTS.md](AGENTS.md) | 开发规范（分层、命名、i18n、主题变量的唯一事实源） |
 | [CONTRIBUTION.md](CONTRIBUTION.md) | **如何参与贡献**：分支规范、提交规范、代码风格、本地验证 |
