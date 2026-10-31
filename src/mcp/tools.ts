@@ -26,7 +26,7 @@ import {
   updatePost,
 } from '@/server/services/posts'
 import { listRevisions, restoreRevision } from '@/server/services/revisions'
-import { createTag, listTags, mergeTags, renameTag } from '@/server/services/tags'
+import { createTag, deleteTag, listTags, mergeTags, renameTag } from '@/server/services/tags'
 import type { Actor } from '@/server/services/posts'
 import type { McpContext } from './context'
 import { MCP_INSTRUCTIONS } from './instructions'
@@ -514,6 +514,20 @@ export function registerTools(server: McpServer, ctx: McpContext): void {
           target: { type: 'tag', id: targetId },
           meta: { sourceId },
         })
+        return { ok: true }
+      }),
+  )
+
+  server.registerTool(
+    'delete_tag',
+    {
+      description: '删除标签，文章关联一并移除。',
+      inputSchema: z.object({ tagId: z.string() }),
+    },
+    async ({ tagId }) =>
+      run(async () => {
+        await deleteTag(tagId)
+        await recordAudit({ actor, action: 'tag.delete', target: { type: 'tag', id: tagId } })
         return { ok: true }
       }),
   )

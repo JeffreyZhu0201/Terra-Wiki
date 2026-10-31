@@ -153,6 +153,7 @@ describe('mcp tools', () => {
       'create_tag',
       'delete_category',
       'delete_media',
+      'delete_tag',
       'get_post',
       'list_categories',
       'list_media',
@@ -490,5 +491,27 @@ describe('mcp tools', () => {
       arguments: { slug: 'by-admin', name: '管理员建的' },
     })
     expect(ok.isError).toBeFalsy()
+  })
+
+  it('deletes a tag and records the audit', async () => {
+    const { ctx } = await tokenContext({ canPublish: false })
+    const client = await connect(ctx)
+    const { createTag } = await import('../server/services/tags')
+    const tag = await createTag('待删标签')
+
+    const ok = await client.callTool({ name: 'delete_tag', arguments: { tagId: tag.id } })
+    expect(ok.isError).toBeFalsy()
+
+    const { listTags } = await import('../server/services/tags')
+    expect((await listTags()).map((t) => t.name)).not.toContain('待删标签')
+    const entry = (await db.select().from(auditLogs)).find((l) => l.action === 'tag.delete')
+    expect(entry?.actorType).toBe('token')
+
+    const missing = await client.callTool({
+      name: 'delete_tag',
+      arguments: { tagId: '00000000-0000-0000-0000-000000000000' },
+    })
+    expect(missing.isError).toBe(true)
+    expect((missing.content as { type: 'text'; text: string }[])[0]!.text).toContain('标签不存在')
   })
 })
