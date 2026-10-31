@@ -26,12 +26,12 @@
   --color-code-rule: #d7dde3;
   --color-code-btn-border: #c3ccd4;
   --color-code-btn-hover: #97a3af;
-  /* 日历热力：亮色白→黑 */
-  --color-cal-0: #ffffff;
-  --color-cal-1: #c9cfd6;
-  --color-cal-2: #8b95a1;
-  --color-cal-3: #4b5563;
-  --color-cal-4: #14171c;
+  /* 日历热力：透明起步，逐档加深到灰（半透明黑叠在纸面上即灰，最深也不到纯黑） */
+  --color-cal-0: transparent;
+  --color-cal-1: rgb(20 23 28 / 0.14);
+  --color-cal-2: rgb(20 23 28 / 0.28);
+  --color-cal-3: rgb(20 23 28 / 0.4);
+  --color-cal-4: rgb(20 23 28 / 0.66);
   --color-cal-text: #1f2328;
   --color-cal-text-hi: #f4f5f6;
   --color-cal-today: #f5c56b;
@@ -61,12 +61,12 @@
   --color-code-rule: rgb(255 255 255 / 0.08);
   --color-code-btn-border: rgb(255 255 255 / 0.15);
   --color-code-btn-hover: rgb(255 255 255 / 0.35);
-  /* 日历热力：暗色反向，黑→白 */
-  --color-cal-0: #171c23;
-  --color-cal-1: #3b4654;
-  --color-cal-2: #6b7686;
-  --color-cal-3: #a8b2c0;
-  --color-cal-4: #e6eaf0;
+  /* 日历热力：暗色反向，同样是透明起步，半透明白叠在深底上即浅灰 */
+  --color-cal-0: transparent;
+  --color-cal-1: rgb(230 234 240 / 0.14);
+  --color-cal-2: rgb(230 234 240 / 0.28);
+  --color-cal-3: rgb(230 234 240 / 0.4);
+  --color-cal-4: rgb(230 234 240 / 0.66);
   --color-cal-text: #e6eaf0;
   --color-cal-text-hi: #14171c;
   --color-cal-today: #f5c56b;
@@ -361,10 +361,10 @@ body {
 }
 .calendar-cell[data-level='3'] {
   background: var(--color-cal-3);
-  color: var(--color-cal-text-hi);
 }
 .calendar-cell[data-level='4'] {
   background: var(--color-cal-4);
+  /* 4 档已是中深灰，正文墨色压上去对比不足，改用反相文字 */
   color: var(--color-cal-text-hi);
 }
 
