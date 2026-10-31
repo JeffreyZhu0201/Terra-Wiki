@@ -26,20 +26,22 @@ export default async function PublicLayout({ children }: { children: ReactNode }
           <CategoryTree nodes={tree} />
         </aside>
 
-        {/*
-          rail-scroll：main 的滚动条贴在窗口右缘，视觉上会误以为是右侧栏的滚动条。
-          隐藏它但保留滚动；阅读进度由目录高亮指示，不靠滚动条。
-        */}
+        {/* rail-scroll：隐藏 main 贴窗口右缘的滚动条，避免被误认成右侧栏的。 */}
         <main id="content" className="rail-scroll min-w-0 flex-1 overflow-y-auto">
           <div className="py-8">{children}</div>
-
-          {settings.siteFooter ? (
-            <footer className="py-8 text-center font-mono text-xs text-ink-muted">
-              {settings.siteFooter}
-            </footer>
-          ) : null}
         </main>
       </div>
+
+      {settings.siteFooter ? (
+        /*
+         * 页脚挂在 shell 底部、与三栏无关：
+         * 放进 main 里只会相对正文列居中，左栏一占位，文字就偏离页面中线；
+         * 独立成一行才横跨整个窗口，text-center 是真正的居中，且贴住底边。
+         */
+        <footer className="shrink-0 px-5 pb-3 pt-1 text-center font-mono text-xs text-ink-muted">
+          {settings.siteFooter}
+        </footer>
+      ) : null}
 
       <CodeCopyEnabler />
     </div>
