@@ -20,8 +20,6 @@ services:
       retries: 20
 
   app:
-    # 版本由 .env 的 APP_VERSION 决定（如 release-0.5.0），升级改它再 pull && up -d
-    image: ghcr.io/jeffreyzhu0201/terra-wiki:${APP_VERSION:-release-0.5.0}
     build:
       context: .
       target: runner

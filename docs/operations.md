@@ -45,23 +45,20 @@ docker compose up -d
 
 ## 升级
 
-镜像由 CI 在打 `v<version>` tag 时自动构建推送到 ghcr（见 `docs/branching.md`），
-服务器端不再本地构建：
+从源码构建部署（见 `docs/branching.md` 的发布流程），顺序固定：**先 build 成功，再 up**。
 
 ```bash
 git pull
-# .env 里把 APP_VERSION 改成新版本（如 release-0.5.1）
-docker compose pull app
+docker compose build
 docker compose up -d
 ```
 
-`up` 会让 app 容器先跑迁移（`scripts/migrate.mjs`）再起服务：迁移失败时容器直接退出、
-`restart: unless-stopped` 也救不了它，`docker compose ps` 里能看到 app 反复重启，
-旧容器已停——此时先修迁移问题或回滚镜像，不要硬拉。
+`build` 失败不影响正在跑的旧容器；`up` 会让 app 容器先跑迁移（`scripts/migrate.mjs`）
+再起服务。迁移失败时新容器起不来，`docker compose ps` 里能看到 app 反复重启——
+先看 `docker compose logs app` 修迁移问题，或回滚，不要硬拉。
 
-回滚：把 `docker-compose.yml` 里 app 的镜像指回上一个
-`release-<version>`（或 `docker compose pull` 旧版本镜像）再 `up -d`。
-数据库迁移不自动回滚——如果新迁移不兼容旧代码，先恢复备份。
+回滚：`git checkout <上一个 release 的 tag>`（或任意已知良好的 commit），
+再走一遍 `build && up -d`。数据库迁移不自动回滚——如果新迁移不兼容旧代码，先恢复备份。
 
 ## Token 轮换
 
