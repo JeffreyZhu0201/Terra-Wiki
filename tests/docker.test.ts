@@ -10,19 +10,20 @@ describe('docker packaging', () => {
     expect(df).toContain('USER nextjs')
   })
 
-  it('compose defines db, migrate and app with the uploads volume', () => {
+  it('compose defines db and app with the uploads volume', () => {
     const c = readFileSync('docker-compose.yml', 'utf8')
     expect(c).toContain('postgres:17-alpine')
     expect(c).toContain('pgdata')
     expect(c).toContain('uploads:/app/uploads')
-    expect(c).toContain('service_completed_successfully')
+    // 迁移已并入 app 容器启动流程，不再有独立的 migrate 服务
+    expect(c).not.toContain('service_completed_successfully')
   })
 
   it('migrates before the app starts', () => {
-    const c = readFileSync('docker-compose.yml', 'utf8')
-    const migrateIndex = c.indexOf('migrate:')
-    const appIndex = c.indexOf('  app:')
+    const df = readFileSync('Dockerfile', 'utf8')
+    const migrateIndex = df.indexOf('node scripts/migrate.mjs')
+    const serverIndex = df.indexOf('node server.js')
     expect(migrateIndex).toBeGreaterThan(-1)
-    expect(appIndex).toBeGreaterThan(migrateIndex)
+    expect(serverIndex).toBeGreaterThan(migrateIndex)
   })
 })
