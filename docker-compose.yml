@@ -1,4 +1,4 @@
-# 正式环境：数据库 + 迁移 + 应用。开发/测试用的库在 docker-compose.dev.yml。
+# 正式环境：数据库 + 应用（应用启动时自动跑迁移）。开发/测试用的库在 docker-compose.dev.yml。
 # 所有可配置项都在同目录 .env（参考 .env.example），compose 会自动读取。
 
 services:
@@ -18,18 +18,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
-
-  # 一次性任务：跑完迁移就退出。app 依赖它成功退出。
-  migrate:
-    build:
-      context: .
-      target: migrate
-    restart: "no"
-    environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-terra}:${POSTGRES_PASSWORD:-terra}@db:5432/${POSTGRES_DB:-terra}
-    depends_on:
-      db:
-        condition: service_healthy
 
   app:
     build:
@@ -56,8 +44,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
 
 volumes:
   pgdata:

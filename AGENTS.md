@@ -20,7 +20,8 @@ pnpm dev                                         # http://localhost:3000
 ```
 
 - 配置全部在 `.env`（模板见 `.env.example`），compose 与 next dev 都自动读取。
-- 正式环境是另一条链路：`docker compose build app && docker compose up -d app`。镜像在构建时打入源码，**改完代码必须重建镜像**才会在 :3000 生效。
+- 三种模式（本地开发 / 打包 / 正式启动）的区别见 `docs/environments.md`，改部署链路前先读。
+- 正式环境走 CI 出的镜像：在 main 上打 `v<version>` tag 后，`.github/workflows/release-image.yml` 自动构建并推送 `ghcr.io/jeffreyzhu0201/terra-wiki:release-<version>`，服务器端 `docker compose pull app && docker compose up -d`。镜像在构建时打入源码，**必须拉新镜像**改动才会在 :3000 生效；数据库迁移在 app 容器启动时自动跑（`scripts/migrate.mjs`），没有独立的 migrate 镜像。
 - 完成的定义：`pnpm typecheck` 与 `pnpm test` 全过。测试连 `TEST_DATABASE_URL`（55432 测试库）。包管理器固定 pnpm（`packageManager` 字段已锁版本），不要用 npm / yarn。
 - 已知坑：本机装了 OrbStack，它会把容器端口自动转发到 localhost。若迁移「成功但没建表」，先确认 `localhost:5432` 实际落在哪个容器（`docker exec <db容器> psql -U terra -d terra -c '\dt'`）。
 
@@ -93,7 +94,7 @@ src/server/
 src/i18n/              locale 常量 + dictionaries/{zh,en}.ts
 src/mcp/               MCP 工具定义（tools.ts）+ instructions.ts（随 initialize 下发给 Agent 的写入契约）
 drizzle/               迁移 SQL（drizzle-kit generate 生成，不手写）
-scripts/seed.sql       演示数据
+scripts/seed.sql       演示数据；scripts/migrate.mjs 是容器启动时自动迁移用的脚本
 ```
 
 放置约定：新页面先想清楚进 `(public)` 还是 `admin/`；新业务逻辑进 `server/services/` 对应领域文件（没有就新建一个）；纯函数工具进 `src/lib/`。

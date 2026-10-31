@@ -41,21 +41,25 @@ docker run --rm -v terra-wiki_uploads:/data -v "$PWD":/backup alpine \
 docker compose up -d
 ```
 
-恢复的是旧快照，迁移状态也可能比备份新——`migrate` 服务会在 app 启动前把库推到最新。
+恢复的是旧快照，迁移状态也可能比备份新——app 启动时会自动把库迁到最新。
 
 ## 升级
 
+镜像由 CI 在打 `v<version>` tag 时自动构建推送到 ghcr（见 `docs/branching.md`），
+服务器端不再本地构建：
+
 ```bash
 git pull
-docker compose build
+docker compose pull app
 docker compose up -d
 ```
 
-顺序是固定的：**先 build 成功，再 up**。`up` 会重跑 `migrate` 服务，迁移失败时
-app 不会启动（`service_completed_successfully`），旧容器继续跑，不会出现
-"新代码配旧库"的中间状态。
+`up` 会让 app 容器先跑迁移（`scripts/migrate.mjs`）再起服务：迁移失败时容器直接退出、
+`restart: unless-stopped` 也救不了它，`docker compose ps` 里能看到 app 反复重启，
+旧容器已停——此时先修迁移问题或回滚镜像，不要硬拉。
 
-回滚：把代码切回上一个版本，再 `docker compose build && docker compose up -d`。
+回滚：把 `docker-compose.yml` 里 app 的镜像指回上一个
+`release-<version>`（或 `docker compose pull` 旧版本镜像）再 `up -d`。
 数据库迁移不自动回滚——如果新迁移不兼容旧代码，先恢复备份。
 
 ## Token 轮换
@@ -90,10 +94,10 @@ docker compose up -d --force-recreate app
 
 ### app 起不来，日志里是数据库连接错误
 
-多半是 `migrate` 没跑成功。先看迁移日志：
+多半是启动迁移没跑成功。迁移就在 app 容器里跑，直接看它的日志：
 
 ```bash
-docker compose logs migrate
+docker compose logs app
 docker compose logs db
 ```
 
@@ -119,7 +123,7 @@ docker compose exec app ls -ld /app/uploads
 
 ### 迁移报错但库是好的
 
-`migrate` 服务用的是 `drizzle-kit migrate`，它只读 `drizzle/` 目录里的迁移文件。
+容器启动时的迁移脚本（`scripts/migrate.mjs`）只读 `drizzle/` 目录里的迁移文件。
 改了 schema 但没生成迁移文件，库就不会变：
 
 ```bash
