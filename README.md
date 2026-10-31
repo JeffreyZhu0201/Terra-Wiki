@@ -288,6 +288,7 @@ env 只是**出厂配置**：后台改过之后以数据库为准，改 env 只�
 | 文档 | 内容 |
 | --- | --- |
 | [docs/operations.md](docs/operations.md) | 备份、恢复、升级、Token 轮换、常见故障 |
+| [docs/environments.md](docs/environments.md) | 本地开发 / 打包 / 正式启动的区别 |
 | [docs/branching.md](docs/branching.md) | 分支模型、PR 流程、发布与热修步骤 |
 | [AGENTS.md](AGENTS.md) | 开发规范（分层、命名、i18n、主题变量的唯一事实源） |
 | [CONTRIBUTION.md](CONTRIBUTION.md) | **如何参与贡献**：分支规范、提交规范、代码风格、本地验证 |
