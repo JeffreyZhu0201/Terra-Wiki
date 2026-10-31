@@ -40,6 +40,7 @@ const en: typeof zh = {
   calendarPrevMonth: 'Previous month',
   calendarNextMonth: 'Next month',
   calendarToday: 'Today',
+  calendarTodayMark: 'Now',
   calendarWeekdays: 'MTWTFS',
   calendarSelectedDay: 'posts on this day',
   calendarClearFilter: 'Show all',

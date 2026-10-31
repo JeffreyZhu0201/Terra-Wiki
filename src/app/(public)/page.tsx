@@ -112,6 +112,7 @@ export default async function HomePage({ searchParams }: Props) {
             prevMonth: dict.calendarPrevMonth,
             nextMonth: dict.calendarNextMonth,
             today: dict.calendarToday,
+            todayMark: dict.calendarTodayMark,
             weekdays: Array.from(dict.calendarWeekdays),
           }}
           dayHref={dayHref}

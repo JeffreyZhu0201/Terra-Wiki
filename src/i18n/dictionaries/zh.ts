@@ -40,6 +40,7 @@ const zh = {
   calendarPrevMonth: '上个月',
   calendarNextMonth: '下个月',
   calendarToday: '今天',
+  calendarTodayMark: '今',
   calendarWeekdays: '一二三四五六日',
   calendarSelectedDay: '当天发文',
   calendarClearFilter: '查看全部',

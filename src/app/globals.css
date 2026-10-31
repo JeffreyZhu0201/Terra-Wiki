@@ -368,9 +368,11 @@ body {
   color: var(--color-cal-text-hi);
 }
 
-/* 今天：淡橙黄圆形，压在热力底色上 */
+/* 今天：淡橙黄圆形；格内标「今 / Now」而非日期数字，字距收紧保证放得下 */
 .calendar-cell.is-today {
   box-shadow: inset 0 0 0 2px var(--color-cal-today);
+  font-size: 11px;
+  letter-spacing: 0;
 }
 
 /* 点选筛选中的那一天 */

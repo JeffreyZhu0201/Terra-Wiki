@@ -162,6 +162,7 @@ export default async function CatchAllPage({ params, searchParams }: Props) {
                 prevMonth: dict.calendarPrevMonth,
                 nextMonth: dict.calendarNextMonth,
                 today: dict.calendarToday,
+                todayMark: dict.calendarTodayMark,
                 weekdays: Array.from(dict.calendarWeekdays),
               }}
               dayHref={(day) => `/?day=${day}`}
