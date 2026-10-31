@@ -6,6 +6,7 @@ type Labels = {
   prevMonth: string
   nextMonth: string
   today: string
+  todayMark: string
   weekdays: string[]
 }
 
@@ -74,6 +75,7 @@ export function PublishCalendar({
                 isSelected={day === selectedDay}
                 href={dayHref(day)}
                 todayLabel={labels.today}
+                todayMark={labels.todayMark}
               />
             ) : (
               <span key={`pad-${index}`} aria-hidden="true" className="calendar-pad" />
@@ -92,6 +94,7 @@ function CalendarCell({
   isSelected,
   href,
   todayLabel,
+  todayMark,
 }: {
   day: string
   count: number
@@ -100,6 +103,7 @@ function CalendarCell({
   isSelected: boolean
   href: string
   todayLabel: string
+  todayMark: string
 }) {
   const classes = ['calendar-cell']
   if (isToday) classes.push('is-today')
@@ -114,7 +118,8 @@ function CalendarCell({
       data-level={level}
       className={classes.join(' ')}
     >
-      {Number(day.slice(8))}
+      {/* 今天不显示日期数字，直接标「今 / Now」，扫一眼就知道橙圈在哪一天。 */}
+      {isToday ? todayMark : Number(day.slice(8))}
     </Link>
   )
 }
