@@ -98,13 +98,19 @@ git tag -a v0.2.0 -m "Terra-Wiki 0.2.0"
 git push origin main --tags
 ```
 
-合并到 `main` 之后按 `docs/operations.md` 的升级流程部署：
+push tag 会触发 `.github/workflows/release-image.yml`，自动构建镜像并推送到
+`ghcr.io/jeffreyzhu0201/terra-wiki:release-<version>`；服务器端升级见 `docs/operations.md`。
+
+服务器部署不再走源码构建，直接拉 CI 产出的镜像：
 
 ```bash
 git pull
-docker compose build
+docker compose pull app
 docker compose up -d
 ```
+
+app 容器启动时自动跑数据库迁移（`scripts/migrate.mjs`），迁移失败则容器起不来、
+旧容器继续跑，不会出现「新代码配旧库」的中间状态。
 
 数据库迁移不会自动回滚，回滚步骤见 `docs/operations.md`。
 

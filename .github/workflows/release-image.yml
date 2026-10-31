@@ -1,0 +1,44 @@
+# 发布镜像：打 v<version> tag 后自动构建并推送到 ghcr。
+# tag 只会从 main 的发布/热修流程打出（见 docs/branching.md），
+# 能到这一步的提交都经过了 PR 的 CI（typecheck + test），这里不再重复跑。
+
+name: Release image
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: release-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # ghcr 仓库路径必须全小写；版本号取自 tag（v0.4.3 → 0.4.3）
+      - name: Compute image name and version
+        run: |
+          echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runner
+          push: true
+          tags: ghcr.io/${{ env.REPO_LC }}/terra-wiki:release-${{ env.VERSION }}
