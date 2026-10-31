@@ -50,6 +50,7 @@ docker compose up -d
 
 ```bash
 git pull
+# .env 里把 APP_VERSION 改成新版本（如 release-0.5.1）
 docker compose pull app
 docker compose up -d
 ```

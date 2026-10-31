@@ -41,4 +41,4 @@ jobs:
           context: .
           target: runner
           push: true
-          tags: ghcr.io/${{ env.REPO_LC }}/terra-wiki:release-${{ env.VERSION }}
+          tags: ghcr.io/${{ env.REPO_LC }}:release-${{ env.VERSION }}
