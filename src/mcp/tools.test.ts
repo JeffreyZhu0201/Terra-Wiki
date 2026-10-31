@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createTestUser, resetDb } from '../../tests/db'
 import { db } from '../server/db/client'
 import { auditLogs, mcpTokens, postViewDaily } from '../server/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { createCategory } from '../server/services/categories'
 import { ensureMemberToken, revokeMcpToken } from '../server/services/tokens'
 import { createMcpServer } from './tools'
@@ -156,6 +156,7 @@ describe('mcp tools', () => {
       'delete_tag',
       'get_post',
       'get_post_views',
+      'get_publish_calendar',
       'list_categories',
       'list_media',
       'list_posts',
@@ -552,5 +553,64 @@ describe('mcp tools', () => {
       arguments: { postIds: Array.from({ length: 51 }, () => postId) },
     })
     expect(tooMany.isError).toBe(true)
+  })
+
+  it('counts published posts per day and reports zero days', async () => {
+    const category = await createCategory({ parentId: null, slug: 'guide', name: '指南' })
+    const { ctx } = await tokenContext({ canPublish: true })
+    const client = await connect(ctx)
+
+    // 发布两篇，把 published_at 钉到已知日期；一篇留 draft 不计入
+    const postIds: string[] = []
+    for (const title of ['第一篇', '第二篇', '草稿']) {
+      const created = await client.callTool({
+        name: 'create_post',
+        arguments: { categoryId: category.id, title, bodyMd: 'B' },
+      })
+      postIds.push(
+        JSON.parse((created.content as { type: 'text'; text: string }[])[0]!.text).id as string,
+      )
+    }
+    await client.callTool({ name: 'publish_post', arguments: { postId: postIds[0]! } })
+    await client.callTool({ name: 'publish_post', arguments: { postId: postIds[1]! } })
+    await db.execute(
+      sql`UPDATE posts SET published_at = ${'2026-10-01 10:00:00'}::timestamp WHERE id = ${postIds[0]!}`,
+    )
+    await db.execute(
+      sql`UPDATE posts SET published_at = ${'2026-10-03 10:00:00'}::timestamp WHERE id = ${postIds[1]!}`,
+    )
+
+    const result = await client.callTool({
+      name: 'get_publish_calendar',
+      arguments: { from: '2026-10-01', to: '2026-10-04' },
+    })
+    expect(result.isError).toBeFalsy()
+    const items = JSON.parse(
+      (result.content as { type: 'text'; text: string }[])[0]!.text,
+    ) as { day: string; count: number }[]
+    expect(items).toEqual([
+      { day: '2026-10-01', count: 1 },
+      { day: '2026-10-02', count: 0 },
+      { day: '2026-10-03', count: 1 },
+      { day: '2026-10-04', count: 0 },
+    ])
+
+    const badRange = await client.callTool({
+      name: 'get_publish_calendar',
+      arguments: { from: '2026-10-04', to: '2026-10-01' },
+    })
+    expect(badRange.isError).toBe(true)
+
+    const badDate = await client.callTool({
+      name: 'get_publish_calendar',
+      arguments: { from: 'not-a-date', to: '2026-10-01' },
+    })
+    expect(badDate.isError).toBe(true)
+
+    const tooLong = await client.callTool({
+      name: 'get_publish_calendar',
+      arguments: { from: '2020-01-01', to: '2026-10-01' },
+    })
+    expect(tooLong.isError).toBe(true)
   })
 })
